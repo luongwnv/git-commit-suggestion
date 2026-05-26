@@ -119,14 +119,11 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   showBody: true,
 };
 
-// Settings icon — remote-controller motif (assets/settings.svg). Drawn as a
-// rounded-rect body with a stroke, and the dial / slides / buttons rendered
-// in currentColor on TOP of the body. Body uses fill-rule:nonzero with the
-// SVG's first big path acting as a "case", and inner shapes are drawn over
-// it at full opacity — so they read clearly in both light and dark themes
-// instead of fading away with opacity tricks. The outer case itself is
-// outlined (stroke=currentColor, fill=none) so we don't get a black slab.
-const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="4"/><line x1="40" y1="2" x2="40" y2="62"/><circle cx="20" cy="40" r="12" fill="currentColor" stroke="none"/><circle cx="20" cy="40" r="7" fill="none" stroke-width="2"/><circle cx="20" cy="40" r="2.5" fill="currentColor" stroke="none"/><rect x="46" y="40" width="14" height="4" rx="2" fill="currentColor" stroke="none"/><rect x="46" y="50" width="14" height="4" rx="2" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="2" fill="currentColor" stroke="none"/><circle cx="28" cy="14" r="3.5" fill="none" stroke-width="2.5"/></svg>`;
+// Settings icon — simple pencil. Diagonal pencil body from top-right to
+// bottom-left with an eraser cap at the top and a tip at the bottom.
+// Single stroke=currentColor outline + a filled tip + filled eraser cap
+// for visual interest. Reads clearly in both light and dark themes.
+const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5l4 4-12 12-5 1 1-5 12-12z"/><path d="M14 6l4 4"/><path d="M4.5 19.5l1-5 4 4-5 1z" fill="currentColor"/></svg>`;
 
 // "API key" badge icon — inlined from assets/remote.svg. Same flatten-to-
 // currentColor + opacity treatment. Used in the BYOK banner.
@@ -448,6 +445,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     <button class="icon-btn" id="settings-btn" title="Settings">${SETTINGS_ICON_SVG}</button>
     <button id="suggest-btn">Suggest</button>
   </div>
+  <!-- Banner FIRST so the "API key required" prompt is always visible at the
+       top of the view, even while the settings panel is expanded below it. -->
+  <div id="banner"></div>
   <div class="settings hidden" id="settings">
     <div class="settings-row">
       <label for="provider-select">Provider</label>
@@ -474,7 +474,6 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       <label for="body-toggle">Include explanation body</label>
     </div>
   </div>
-  <div id="banner"></div>
   <div id="content"><div class="empty">Stage some files, then click <b>Suggest</b>.</div></div>
 
 <script nonce="${nonce}">

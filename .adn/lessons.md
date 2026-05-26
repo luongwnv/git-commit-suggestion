@@ -19,6 +19,10 @@ Apply: with rootDir=`.` and multi-dir include, tsc preserves the src/ prefix in 
 Context: VSCode webviews sandbox aggressively. Browser-style `<link>` to local CSS or `require()` inside the inline script silently fails.
 Apply: build the entire UI as one self-contained HTML string with inline `<style>` and one nonce'd `<script>`. For icons that need to be solid+themed, use inline SVG with `fill="currentColor"`.
 
+### Banner "disappears" when it's actually below an expanded panel
+Context: user reported "the API-key banner is gone after I pick a key-required provider". The banner was rendering correctly — but its DOM order placed it AFTER the settings panel. When the user opened settings (⚙️) to pick the new provider, the still-open panel pushed the banner below the visible area in a narrow sidebar. The state was right, the render was right, but the user simply couldn't see it.
+Apply: in a sidebar webview with collapsible sections, put any "must-see-immediately" message (banners, warnings, errors) BEFORE the collapsible sections in DOM order. Don't trust scroll position — narrow sidebars often have no scrolling at all if content fits one screen. The fix here is one line: swap the order of `<div id="banner">` and `<div id="settings">`.
+
 ### Multi-color SVG icons flattened to `currentColor` + opacity render as a black slab in light themes
 Context: tried to make a remote-controller settings icon work in both themes by replacing all source colors with `currentColor` and using `opacity="0.45"` / `"0.25"` to differentiate dial face from body. In dark mode it looked fine (faded white shapes), but in light mode `currentColor` is black and all the opacity-faded regions also became dark — the icon read as a single blackish blob.
 Apply: don't simulate "tones" with opacity on a monochrome icon. Use a stencil/outline approach instead:
