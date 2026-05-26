@@ -35,7 +35,20 @@ async function fetchVqd(): Promise<string> {
     throw new Error(`vqd handshake failed: HTTP ${resp.status}`);
   }
   const vqd = resp.headers.get("x-vqd-4");
-  if (!vqd) throw new Error("vqd handshake failed: no x-vqd-4 header");
+  if (!vqd) {
+    // DDG shipped a JS-based anti-bot challenge in 2026-05: instead of the
+    // simple x-vqd-4 token, the /status endpoint now returns x-vqd-hash-1
+    // — a base64-encoded JS challenge that must be executed in a browser
+    // environment to derive the real token. Replicating this from a Node
+    // fetch is not feasible.
+    const hashHeader = resp.headers.get("x-vqd-hash-1");
+    if (hashHeader) {
+      throw new Error(
+        "DuckDuckGo introduced a JS anti-bot challenge that this extension can't solve from Node. Pick a different provider.",
+      );
+    }
+    throw new Error("vqd handshake failed: no x-vqd-4 header");
+  }
   return vqd;
 }
 

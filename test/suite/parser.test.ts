@@ -52,4 +52,28 @@ describe("parser.parseSuggestions", () => {
   it("throws on non-JSON garbage", () => {
     assert.throws(() => parseSuggestions("totally not json"));
   });
+
+  it("wraps a bare single-object response as a one-element array", () => {
+    // Pollinations gpt-oss-20b often emits one suggestion as a bare object
+    // when response_format:json_object is set. Parser should wrap, not throw.
+    const raw = JSON.stringify({
+      type: "feat",
+      scope: "auth",
+      subject_en: "add login",
+      subject_vi: "",
+      body_en: "",
+      body_vi: "",
+    });
+    const out = parseSuggestions(raw);
+    assert.strictEqual(out.length, 1);
+    assert.strictEqual(out[0].type, "feat");
+    assert.strictEqual(out[0].scope, "auth");
+  });
+
+  it("wraps single object with surrounding prose", () => {
+    const raw = 'Here is the suggestion:\n{"type":"fix","scope":"","subject_en":"x","subject_vi":"y"}\nDone.';
+    const out = parseSuggestions(raw);
+    assert.strictEqual(out.length, 1);
+    assert.strictEqual(out[0].type, "fix");
+  });
 });

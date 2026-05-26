@@ -69,6 +69,18 @@ Apply: before any commit, scan `git status -s` for unexpected `??` entries. If a
 Context: amending HEAD to drop the files would have been faster but risky during a multi-step commit chain. Removing files from the tree + committing the deletions is cleaner — history records the mistake and the cleanup, both honest.
 Apply: only amend if HEAD hasn't been verified yet; otherwise create a follow-up cleanup commit.
 
+### `response_format: json_object` on small models collapses arrays to single objects
+Context: Pollinations' anonymous tier (gpt-oss-20b) with `response_format: {type: "json_object"}` returns one bare suggestion object instead of the requested array — JSON schema mode constrains the output to *a* JSON object, not necessarily an array. The parser expecting `[{...}, {...}]` throws "No JSON array found".
+Apply: For small models, drop `response_format: json_object` and rely on prompt instruction + parser robustness. Have the parser accept three shapes: bare array `[...]`, `{suggestions: [...]}` wrapper, and bare object `{...}` (wrap as `[obj]`). Set generous `max_tokens` because reasoning models burn tokens before emitting structured output.
+
+### Friendly errors when an endpoint returns HTML
+Context: HuggingFace router 401 returns a full HTML page (~10KB) as the response body. Dumping `text.slice(0, 400)` of that into the error message shows the user the start of `<!DOCTYPE html>` — useless.
+Apply: detect HTML responses (`text.trim().startsWith("<")`) and either truncate them aggressively or replace with a curated message that includes the actionable next step ("get a token at …").
+
+### Ollama 404 = model not installed; probe `/api/tags` for what IS available
+Context: Hardcoding `default_model: llama3.1:8b` breaks every install that doesn't have that specific tag. Ollama returns `{"error":"model 'X' not found"}` with HTTP 404.
+Apply: On 404 with "not found" in body, GET `/api/tags`, list installed models, and surface that list plus the `ollama pull <model>` command. Don't pick one automatically — the user has reasons for what they have.
+
 ### Anonymous public LLM endpoints break often — verify before shipping
 Context: by 2026-05, three "zero-config" providers we relied on had all broken in subtly different ways:
 - Pollinations: legacy model id `openai-large` returned 404; anonymous tier dropped to one model `openai-fast` (gpt-oss-20b). GET `/models` lists what's currently exposed.

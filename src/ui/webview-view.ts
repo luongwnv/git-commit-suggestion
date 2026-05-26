@@ -1,5 +1,11 @@
 import * as vscode from "vscode";
-import { DETAIL_LEVEL_LABELS, DetailLevel, LANGUAGE_LABELS, Language } from "../models/config";
+import {
+  DETAIL_LEVEL_LABELS,
+  DETAIL_LEVEL_TRANSLATIONS,
+  DetailLevel,
+  LANGUAGE_LABELS,
+  Language,
+} from "../models/config";
 import { formatCommitMessage, Suggestion } from "../models/suggestion";
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -66,9 +72,15 @@ const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
   Object.keys(LANGUAGE_LABELS) as Language[]
 ).map((id) => ({ id, label: LANGUAGE_LABELS[id] }));
 
-const DETAIL_OPTIONS: { id: DetailLevel; label: string }[] = (
-  Object.keys(DETAIL_LEVEL_LABELS) as DetailLevel[]
-).map((id) => ({ id, label: DETAIL_LEVEL_LABELS[id] }));
+const DETAIL_IDS = Object.keys(DETAIL_LEVEL_LABELS) as DetailLevel[];
+
+// Detail-level translations injected into the webview as a single table.
+// The webview script rebuilds the dropdown options whenever the output
+// language changes, using DETAIL_TRANSLATIONS_TABLE["<lang>"] || ["_default"].
+const DETAIL_TRANSLATIONS_TABLE: Record<string, Record<DetailLevel, string>> = {
+  _default: DETAIL_LEVEL_LABELS,
+  ...(DETAIL_LEVEL_TRANSLATIONS as Record<string, Record<DetailLevel, string>>),
+};
 
 interface SerializedSuggestion {
   emoji: string;
@@ -117,7 +129,7 @@ const REMOTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="1
 
 // Pencil-edit SVG used inline in the banner text where ⚙️ used to be.
 // Source: assets/setting-edit-svgrepo-com.svg. Flattened fill to currentColor.
-const PENCIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true" style="vertical-align: -2px;"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
+const PENCIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true" style="vertical-align: -4px;"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -270,8 +282,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     const languageOptionsHtml = LANGUAGE_OPTIONS.map(
       (l) => `<option value="${l.id}">${escapeServerSide(l.label)}</option>`,
     ).join("");
-    const detailOptionsHtml = DETAIL_OPTIONS.map(
-      (d) => `<option value="${d.id}">${escapeServerSide(d.label)}</option>`,
+    // Detail-level options are rendered initially in English; the webview
+    // script rebuilds them whenever the output language changes, using the
+    // injected DETAIL_TRANSLATIONS table.
+    const detailOptionsHtml = DETAIL_IDS.map(
+      (id) => `<option value="${id}">${escapeServerSide(DETAIL_LEVEL_LABELS[id])}</option>`,
     ).join("");
 
     return `<!DOCTYPE html>
@@ -282,7 +297,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 <style>
   body {
     font-family: var(--vscode-font-family);
-    font-size: var(--vscode-font-size);
+    /* var(--vscode-font-size) is ~13px which reads too small against the rest
+       of the VSCode chrome inside an Activity Bar webview. Bump to 14px. */
+    font-size: 14px;
     color: var(--vscode-foreground);
     background: var(--vscode-sideBar-background);
     padding: 8px 10px;
@@ -489,6 +506,19 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   const emojiToggle = $("emoji-toggle");
   const bodyToggle = $("body-toggle");
 
+  // Per-language translations for the Detail level dropdown.
+  const DETAIL_TRANSLATIONS = ${JSON.stringify(DETAIL_TRANSLATIONS_TABLE)};
+  const DETAIL_IDS_CLIENT = ${JSON.stringify(DETAIL_IDS)};
+
+  function rebuildDetailOptions(language) {
+    const table = DETAIL_TRANSLATIONS[language] || DETAIL_TRANSLATIONS._default;
+    const prev = detailSelect.value;
+    detailSelect.innerHTML = DETAIL_IDS_CLIENT
+      .map((id) => '<option value="' + id + '">' + escapeHtml(table[id]) + "</option>")
+      .join("");
+    if (prev) detailSelect.value = prev;
+  }
+
   suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
   settingsBtn.addEventListener("click", () => settingsEl.classList.toggle("hidden"));
   providerSelect.addEventListener("change", (e) =>
@@ -571,9 +601,16 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       + "</div>";
   }
 
+  let lastDetailLang = null;
   function syncSettings(settings) {
     if (providerSelect.value !== settings.providerId) providerSelect.value = settings.providerId;
     if (languageSelect.value !== settings.language) languageSelect.value = settings.language;
+    // Rebuild Detail level option labels whenever the output language
+    // changes, so the dropdown stays in the user's language.
+    if (lastDetailLang !== settings.language) {
+      rebuildDetailOptions(settings.language);
+      lastDetailLang = settings.language;
+    }
     if (detailSelect.value !== settings.detailLevel) detailSelect.value = settings.detailLevel;
     if (parseInt(countInput.value, 10) !== settings.suggestionCount) {
       countInput.value = String(settings.suggestionCount);

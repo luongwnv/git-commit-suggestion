@@ -1,8 +1,24 @@
 import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
 
+// Ollama runs locally. `args.model` is whatever the user picked (default comes
+// from providers.yml, but every install has a different model set). When the
+// requested model isn't installed Ollama returns 404 with a body like
+// `{"error":"model 'llama3.1:8b' not found"}` — surface that as a clear
+// "install this first" message and list what IS available via /api/tags.
 export class OllamaProvider extends Provider {
   constructor(id: any, entry: any, private readonly baseUrlOverride: string) {
     super(id, entry);
+  }
+
+  private async listInstalledModels(baseUrl: string): Promise<string[] | null> {
+    try {
+      const resp = await fetch(`${baseUrl}/api/tags`, { method: "GET" });
+      if (!resp.ok) return null;
+      const json = (await resp.json()) as { models?: { name: string }[] };
+      return (json.models ?? []).map((m) => m.name);
+    } catch {
+      return null;
+    }
   }
 
   override async generate(args: GenerateArgs): Promise<ProviderResponse> {
@@ -30,12 +46,27 @@ export class OllamaProvider extends Provider {
     } catch (err) {
       throw new ProviderError(
         this.id,
-        `Network error: ${(err as Error).message}. Is Ollama running at ${baseUrl}?`,
+        `Network error: ${(err as Error).message}. Is Ollama running at ${baseUrl}? Start it with: ollama serve`,
       );
     }
 
     if (!resp.ok) {
       const text = await resp.text();
+      // 404 = model not installed locally. Inspect /api/tags and tell the
+      // user which models they have, plus the one-liner to install the
+      // requested model.
+      if (resp.status === 404 && text.includes("not found")) {
+        const installed = await this.listInstalledModels(baseUrl);
+        const have =
+          installed && installed.length > 0
+            ? `Installed: ${installed.join(", ")}. Pick one in the model setting.`
+            : `No models installed. Run: ollama pull ${args.model}`;
+        throw new ProviderError(
+          this.id,
+          `Model "${args.model}" is not installed on the local Ollama. ${have}`,
+          resp.status,
+        );
+      }
       throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`, resp.status);
     }
 

@@ -22,7 +22,12 @@ export class PollinationsProvider extends Provider {
         { role: "user", content: args.userPrompt },
       ],
       temperature: 0.4,
-      response_format: { type: "json_object" },
+      // We intentionally omit `response_format: json_object`. With it,
+      // gpt-oss-20b (the only anonymous-tier model) tends to collapse the
+      // requested array of suggestions into one bare object, breaking the
+      // parser. Without the constraint the model emits a clean array; if it
+      // occasionally returns a single object the parser wraps it for us.
+      max_tokens: 2500,
       seed: Math.floor(Math.random() * 1e9),
     };
 
