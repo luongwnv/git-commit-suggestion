@@ -44,20 +44,22 @@ interface ViewState {
   suggestions: SerializedSuggestion[];
 }
 
-// Free zero-config providers are aliased to animal codenames in the UI so the
+// Zero-config providers are aliased to animal codenames in the UI so the
 // extension doesn't advertise upstream provider names. The internal id (used
-// by the orchestrator + config) is unchanged.
+// by the orchestrator + config) is unchanged. Labels are plain text — no
+// emoji, no parenthetical descriptors — so every option looks equivalent and
+// there's no implied hierarchy between "free" and "BYOK" providers.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
-  { id: "auto", label: "Auto (try all free providers)" },
-  { id: "pollinations", label: "🐋 Whale (free, no key)" },
-  { id: "duckduckgo", label: "🦫 Platypus (free, no key)" },
-  { id: "huggingface", label: "🐻‍❄️ Polar Bear (free, optional key)" },
-  { id: "ollama", label: "🦎 Axolotl (local)" },
-  { id: "g4f", label: "🦖 Dinosaur (unofficial)" },
-  { id: "mistral", label: "Mistral (BYOK)" },
-  { id: "openai", label: "OpenAI (BYOK)" },
-  { id: "anthropic", label: "Anthropic (BYOK)" },
-  { id: "groq", label: "Groq (BYOK)" },
+  { id: "auto", label: "Auto" },
+  { id: "pollinations", label: "Whale" },
+  { id: "duckduckgo", label: "Platypus" },
+  { id: "huggingface", label: "Polar Bear" },
+  { id: "ollama", label: "Axolotl" },
+  { id: "g4f", label: "Dinosaur" },
+  { id: "mistral", label: "Mistral" },
+  { id: "openai", label: "OpenAI" },
+  { id: "anthropic", label: "Anthropic" },
+  { id: "groq", label: "Groq" },
 ];
 
 const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (

@@ -6,7 +6,7 @@ UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-pl
 
 A dedicated **Commit Suggestions** webview lives in its own Activity Bar container — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
 
-The default `auto` provider tries three zero-config free providers (🐋 Whale, 🦫 Platypus, 🐻‍❄️ Polar Bear) in turn. No API key needed to start. Paid providers (Mistral, OpenAI, Anthropic, Groq) are BYOK — paste your key via the settings panel or the command palette.
+The default `Auto` provider tries Whale, Platypus, and Polar Bear in turn — no API key needed to start. Other providers (Mistral, OpenAI, Anthropic, Groq) require a key you paste via the settings panel or the command palette.
 
 > **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
@@ -29,22 +29,22 @@ docs/
   provider-comparison.html
 ```
 
-## Provider status
+## Providers
 
-UI labels use animal codenames; the table also lists the internal `provider:` id used in settings.
+UI labels use codenames; the table also lists the internal `provider:` id used in settings.
 
-| UI label | id | Free? | Key required? | Notes |
-|----------|----|-------|---------------|-------|
-| **Auto** | `auto` | ✅ | No | **default** — tries Whale → Platypus → Polar Bear and returns first success |
-| 🐋 Whale | `pollinations` | ✅ | No | zero-config public gateway, GPT-4o-class default model |
-| 🦫 Platypus | `duckduckgo` | ✅ | No | multiple frontier models (GPT-4o-mini, Claude Haiku, Llama, Mistral, o3-mini) |
-| 🐻‍❄️ Polar Bear | `huggingface` | ✅ | Optional | OpenAI-compatible router; pasting a token bumps quota |
-| 🦎 Axolotl | `ollama` | ✅ | No | local LLM via Ollama daemon |
-| 🦖 Dinosaur | `g4f` | ⚠️ | No | opt-in (`enableUnofficialProviders: true`); no SLA, ToS-violating |
-| Mistral | `mistral` | ✅ | Yes (BYOK) | free tier available at console.mistral.ai |
-| OpenAI | `openai` | ❌ paid | Yes | |
-| Anthropic | `anthropic` | ❌ paid | Yes | |
-| Groq | `groq` | ✅ free tier | Yes | very fast Llama/Mixtral |
+| UI label | id | Key |
+|----------|----|-----|
+| **Auto** | `auto` | none — **default**, tries Whale → Platypus → Polar Bear and returns the first success |
+| Whale | `pollinations` | none |
+| Platypus | `duckduckgo` | none |
+| Polar Bear | `huggingface` | optional |
+| Axolotl | `ollama` | none (local) |
+| Dinosaur | `g4f` | none (opt-in via `enableUnofficialProviders: true`) |
+| Mistral | `mistral` | required (BYOK) |
+| OpenAI | `openai` | required (BYOK) |
+| Anthropic | `anthropic` | required (BYOK) |
+| Groq | `groq` | required (BYOK) |
 
 Upstream endpoints, model lists, and protocol quirks for each id live in [docs/provider-comparison.html](docs/provider-comparison.html).
 
