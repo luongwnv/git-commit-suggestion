@@ -59,14 +59,18 @@ interface ViewState {
 // by the orchestrator + config) is unchanged. Labels are plain text — no
 // emoji, no parenthetical descriptors — so every option looks equivalent and
 // there's no implied hierarchy between "free" and "BYOK" providers.
-// Ollama removed from the dropdown per user request — model installs vary
-// per machine and the friendly error path (probe /api/tags) was still too
-// much friction. Provider class + config entry kept in case it's added back.
+// Hidden from the dropdown:
+//   - duckduckgo: JS anti-bot challenge can't be solved from Node
+//   - huggingface: router endpoint now requires a Bearer token; the BYOK
+//     experience is rough enough that we'd rather not advertise it
+//   - ollama: per-machine model installs make the friendly-error path
+//     still too much friction
+// Provider classes + config entries are kept so the orchestrator and any
+// user with a custom settings override (gitCommitSuggestion.provider) still
+// works; they just don't appear in the picker.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "pollinations", label: "Whale" },
-  { id: "duckduckgo", label: "Platypus" },
-  { id: "huggingface", label: "Polar Bear" },
   { id: "g4f", label: "Dinosaur" },
   { id: "mistral", label: "Mistral" },
   { id: "openai", label: "OpenAI" },
