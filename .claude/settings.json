@@ -34,7 +34,8 @@
       "Bash(find . -name \"Screenshot 2026-05-26 at 17.54.46.png\" 2>&1 | head -5 *)",
       "Read(//Users/lit/Desktop/**)",
       "Bash(find . -name \"icon.png\" -not -path \"*/node_modules/*\" 2>&1 | head -5 && echo \"---\" && ls -la ~/Downloads/icon.png ~/Desktop/icon.png 2>&1 | head -5)",
-      "Read(//Users/lit/Downloads/**)"
+      "Read(//Users/lit/Downloads/**)",
+      "Bash(grep -n \"GEAR_SVG = \\\\`<svg\\\\|height: 32px;\\\\|width: 32px;\" src/ui/webview-view.ts)"
     ]
   }
 }

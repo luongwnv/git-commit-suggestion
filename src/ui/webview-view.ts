@@ -135,7 +135,7 @@ const BEST_PRACTICE_IDS = Object.keys(BEST_PRACTICE_LABELS) as BestPracticeId[];
 // felt heavy in the small header bar; switched back to the pencil-edit icon
 // (assets/edit.svg) which reads clearly at 20×20 and matches the same
 // icon used inline in the banner text. Solid SVG, currentColor-themed.
-const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
+const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
 
 // Remote-control SVG used in place of 🔑 in the "API key required" banner.
 // Source: assets/remote.svg. Original two-tone (light body, dark buttons)
@@ -388,8 +388,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     padding: 0;
     cursor: pointer;
     border-radius: 2px;
-    height: 32px;
-    width: 32px;
+    /* Keep slightly wider than the SVG so the hover background has breathing
+       room around the pencil. */
+    height: 40px;
+    width: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
