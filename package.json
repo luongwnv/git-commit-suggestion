@@ -10,7 +10,7 @@
   },
   "categories": ["SCM Providers", "Other"],
   "keywords": ["git", "commit", "conventional-commits", "llm", "mistral", "vietnamese"],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"
   ],
