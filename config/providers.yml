@@ -60,6 +60,46 @@ ollama:
     Runs locally. base_url is overridable via gitCommitSuggestion.ollamaBaseUrl.
     Streaming responses are disabled by the client; we accumulate the whole body.
 
+pollinations:
+  label: Pollinations.ai (free, no key)
+  free_tier: true
+  byok: false
+  base_url: https://text.pollinations.ai
+  endpoint: /openai
+  default_model: openai-large
+  auth: none
+  unofficial: true
+  notes: |
+    Free community-sponsored gateway, no signup. ~1 req per 3-5s per IP.
+    Quality is GPT-4o-class on default model. Can disappear without notice.
+
+duckduckgo:
+  label: DuckDuckGo AI Chat (free, no key)
+  free_tier: true
+  byok: false
+  base_url: https://duckduckgo.com/duckchat/v1
+  endpoint: /chat
+  default_model: gpt-4o-mini
+  auth: none
+  unofficial: true
+  notes: |
+    Reverse-engineered from duckduckgo.com/aichat. Requires a vqd-4 token
+    handshake to /status first. Token rotates per session.
+    Models: gpt-4o-mini, claude-haiku, llama-3.3-70b, mistral-small, o3-mini.
+
+huggingface:
+  label: HuggingFace router (free, optional key)
+  free_tier: true
+  byok: true
+  base_url: https://router.huggingface.co/v1
+  endpoint: /chat/completions
+  default_model: Qwen/Qwen2.5-7B-Instruct
+  auth: bearer
+  notes: |
+    OpenAI-compatible router endpoint. Free without key but rate-limited per
+    IP. Passing a HF token (from huggingface.co/settings/tokens) bumps the
+    quota and unlocks gated models.
+
 g4f:
   label: g4f (unofficial reverse proxy)
   free_tier: true

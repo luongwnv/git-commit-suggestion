@@ -31,14 +31,20 @@ docs/
 
 ## Provider status
 
-| Provider | Type | Free? | Setting | Status |
-|----------|------|-------|---------|--------|
-| mistral | Official API | ✅ free tier | `provider: mistral` | default, supported |
-| openai | Official API | ❌ BYOK paid | `provider: openai` | supported |
-| anthropic | Official API | ❌ BYOK paid | `provider: anthropic` | supported |
-| groq | Official API | ✅ free tier | `provider: groq` | supported |
-| ollama | Local | ✅ free | `provider: ollama` | supported |
-| g4f | Reverse proxy | ⚠️ unofficial | `provider: g4f` + `enableUnofficialProviders: true` | opt-in, no SLA, ToS-violating |
+| Provider | Type | Free? | Key required? | Setting | Status |
+|----------|------|-------|---------------|---------|--------|
+| **auto** | Chain | ✅ | No | `provider: auto` | **default** — tries pollinations → duckduckgo → huggingface → mistral default |
+| pollinations | Public gateway | ✅ free | No | `provider: pollinations` | zero-config, GPT-4o-class on default model |
+| duckduckgo | DDG AI Chat | ✅ free | No | `provider: duckduckgo` | reverse-engineered, vqd handshake, GPT-4o-mini / Claude Haiku / Llama / Mistral / o3-mini |
+| huggingface | HF router | ✅ free (BYOK bumps quota) | No (optional) | `provider: huggingface` | OpenAI-compatible, Qwen 2.5 7B default |
+| mistral | Official API | ✅ free tier | Bundled default + BYOK | `provider: mistral` | supported |
+| openai | Official API | ❌ BYOK paid | Yes | `provider: openai` | supported |
+| anthropic | Official API | ❌ BYOK paid | Yes | `provider: anthropic` | supported |
+| groq | Official API | ✅ free tier | Yes | `provider: groq` | supported |
+| ollama | Local | ✅ free | No | `provider: ollama` | supported |
+| g4f | Reverse proxy | ⚠️ unofficial | No | `provider: g4f` + `enableUnofficialProviders: true` | opt-in, no SLA, ToS-violating |
+
+The default `auto` chain means **the extension works with zero setup** — no API key needed. The first available no-key provider wins. The bundled Mistral default is the last fallback.
 
 ## Quick start
 

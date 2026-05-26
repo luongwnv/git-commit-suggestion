@@ -65,9 +65,9 @@
       "properties": {
         "gitCommitSuggestion.provider": {
           "type": "string",
-          "enum": ["mistral", "openai", "anthropic", "groq", "ollama", "g4f"],
-          "default": "mistral",
-          "description": "Which LLM provider to use. Mistral has an official free tier and is the default. g4f is an unofficial reverse proxy and requires enableUnofficialProviders=true."
+          "enum": ["auto", "mistral", "openai", "anthropic", "groq", "ollama", "pollinations", "duckduckgo", "huggingface", "g4f"],
+          "default": "auto",
+          "description": "Which LLM provider to use. 'auto' tries the no-key free providers in order (pollinations → duckduckgo → huggingface → bundled mistral default) and falls back on each failure. 'g4f' is an unofficial reverse proxy and requires enableUnofficialProviders=true."
         },
         "gitCommitSuggestion.model": {
           "type": "string",

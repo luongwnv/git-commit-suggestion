@@ -309,8 +309,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
 
   function renderBanner(state) {
-    // Only show the onboarding banner for mistral with no user key. Other
-    // providers don't have a shared default to warn about.
+    // Show the upgrade banner only when the active provider is the bundled
+    // shared mistral key — that is when key burnout actually hurts. Auto
+    // mode and zero-config providers (pollinations/ddg/hf) don't need it.
     if (state.providerId !== "mistral" || state.hasUserKey) {
       bannerEl.innerHTML = "";
       return;

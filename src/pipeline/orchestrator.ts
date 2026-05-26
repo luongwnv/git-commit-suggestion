@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as yaml from "js-yaml";
 import { ExtensionConfig, ProvidersConfig, ProvidersConfigSchema } from "../models/config";
 import { Suggestion } from "../models/suggestion";
-import { buildProvider, Provider } from "../providers";
+import { buildProvider, ConcreteProviderId, Provider } from "../providers";
 import { ProviderError } from "../providers/base";
 import { defaultKeyFor } from "../providers/default-keys";
 import { collectStagedDiff, renderDiff } from "./diff-collector";
@@ -22,6 +22,11 @@ export interface OrchestratorResult {
   providerUsed: string;
   truncated: boolean;
 }
+
+// Order matters: cheapest/most-reliable first. Each is tried in turn until
+// one returns parseable suggestions. mistral is last because it consumes the
+// bundled default key, which is shared across all installs.
+const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations", "duckduckgo", "huggingface", "mistral"];
 
 function loadProviders(extensionRoot: string): ProvidersConfig {
   const p = resolveConfigPath(extensionRoot, "providers.yml");
@@ -43,6 +48,42 @@ async function callProvider(
     model: provider.resolveModel(modelOverride),
   });
   return parseSuggestions(resp.rawText);
+}
+
+interface AttemptArgs {
+  id: ConcreteProviderId;
+  providersConfig: ProvidersConfig;
+  ollamaBaseUrl: string;
+  modelOverride: string;
+  systemPrompt: string;
+  userPrompt: string;
+  getApiKey: OrchestratorDeps["getApiKey"];
+  log: OrchestratorDeps["log"];
+}
+
+interface AttemptResult {
+  suggestions: Suggestion[];
+  label: string;
+}
+
+async function attempt(args: AttemptArgs): Promise<AttemptResult> {
+  const provider = buildProvider(args.id, args.providersConfig, {
+    ollamaBaseUrl: args.ollamaBaseUrl,
+  });
+  const userKey = (await args.getApiKey(args.id)) || undefined;
+  const key = userKey ?? defaultKeyFor(args.id);
+  const keySource = userKey ? "user key" : key ? "default key" : "no key";
+  args.log(
+    `Calling provider: ${args.id} (model: ${provider.resolveModel(args.modelOverride)}) using ${keySource}`,
+  );
+  const suggestions = await callProvider(
+    provider,
+    args.systemPrompt,
+    args.userPrompt,
+    key,
+    args.modelOverride,
+  );
+  return { suggestions, label: `${args.id} (${keySource})` };
 }
 
 export async function suggestCommits(deps: OrchestratorDeps): Promise<OrchestratorResult> {
@@ -73,28 +114,42 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
     commitTypes,
   });
 
-  const primaryId = config.provider;
-  const primary = buildProvider(primaryId, providersConfig, { ollamaBaseUrl: config.ollamaBaseUrl });
-  // Key resolution: user-supplied (SecretStorage) wins over the hardcoded
-  // shared default. Empty string from SecretStorage is treated as "unset".
-  const userKey = (await getApiKey(primaryId)) || undefined;
-  const primaryKey = userKey ?? defaultKeyFor(primaryId);
-  const keySource = userKey ? "user key" : primaryKey ? "default key" : "no key";
+  const baseArgs = {
+    providersConfig,
+    ollamaBaseUrl: config.ollamaBaseUrl,
+    modelOverride: config.model,
+    systemPrompt: system,
+    userPrompt: user,
+    getApiKey,
+    log,
+  };
 
+  // Auto mode: walk the chain, return the first success. Surface the chain
+  // of errors in the final exception if every leg fails.
+  if (config.provider === "auto") {
+    const errors: string[] = [];
+    for (const id of AUTO_CHAIN) {
+      try {
+        const r = await attempt({ id, ...baseArgs });
+        return { suggestions: r.suggestions, providerUsed: `auto → ${r.label}`, truncated: diff.truncated };
+      } catch (err) {
+        const msg = (err as Error).message;
+        log(`auto: ${id} failed — ${msg}`);
+        errors.push(`${id}: ${msg}`);
+      }
+    }
+    throw new Error(`All auto-chain providers failed:\n${errors.join("\n")}`);
+  }
+
+  // Explicit provider: try once. g4f still falls back to mistral default on
+  // failure (the unofficial reverse-proxy provider has no SLA).
   try {
-    log(`Calling provider: ${primaryId} (model: ${primary.resolveModel(config.model)}) using ${keySource}`);
-    const suggestions = await callProvider(primary, system, user, primaryKey, config.model);
-    return { suggestions, providerUsed: `${primaryId} (${keySource})`, truncated: diff.truncated };
+    const r = await attempt({ id: config.provider as ConcreteProviderId, ...baseArgs });
+    return { suggestions: r.suggestions, providerUsed: r.label, truncated: diff.truncated };
   } catch (err) {
-    const isUnofficial = primaryId === "g4f";
-    if (!isUnofficial) throw err;
+    if (config.provider !== "g4f") throw err;
     log(`g4f failed (${(err as ProviderError).message}); falling back to mistral`);
-    const fallback = buildProvider("mistral", providersConfig, {
-      ollamaBaseUrl: config.ollamaBaseUrl,
-    });
-    const fallbackUserKey = (await getApiKey("mistral")) || undefined;
-    const fallbackKey = fallbackUserKey ?? defaultKeyFor("mistral");
-    const suggestions = await callProvider(fallback, system, user, fallbackKey, "");
-    return { suggestions, providerUsed: "mistral (fallback)", truncated: diff.truncated };
+    const r = await attempt({ id: "mistral", ...baseArgs });
+    return { suggestions: r.suggestions, providerUsed: `g4f → ${r.label}`, truncated: diff.truncated };
   }
 }

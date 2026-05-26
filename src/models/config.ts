@@ -1,11 +1,15 @@
 import { z } from "zod";
 
 export const ProviderIdSchema = z.enum([
+  "auto",
   "mistral",
   "openai",
   "anthropic",
   "groq",
   "ollama",
+  "pollinations",
+  "duckduckgo",
+  "huggingface",
   "g4f",
 ]);
 export type ProviderId = z.infer<typeof ProviderIdSchema>;

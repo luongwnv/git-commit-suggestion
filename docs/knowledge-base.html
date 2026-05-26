@@ -21,7 +21,52 @@
 <h1>git-commit-suggestion — Knowledge Base</h1>
 <p>Non-obvious facts about providers, the pipeline, and VSCode integration. Append new gotchas here as you discover them; do not delete entries unless the underlying behavior changed.</p>
 
+<h2 id="auto-chain">Auto-fallback chain</h2>
+<p>The default <code>provider: "auto"</code> walks <code>AUTO_CHAIN = ["pollinations", "duckduckgo", "huggingface", "mistral"]</code> in <code>orchestrator.ts</code>, returning the first success. Ordering rationale:</p>
+<ol>
+  <li><strong>pollinations</strong> first — pure-OpenAI schema, no handshake, GPT-4o-class. Lowest friction.</li>
+  <li><strong>duckduckgo</strong> second — needs a vqd handshake (extra round-trip) but otherwise reliable; supports multiple frontier models.</li>
+  <li><strong>huggingface</strong> third — works without a key but per-IP rate-limited heavily; default model is a 7B which is sometimes worse at JSON.</li>
+  <li><strong>mistral</strong> last — consumes the bundled default key shared across all installs. If we burn it, everyone burns it.</li>
+</ol>
+<p>When all four legs fail, the orchestrator throws a single error that lists every leg's failure reason. The webview surfaces this verbatim — useful for debugging because typically only one or two legs go down at a time.</p>
+
 <h2 id="providers">Provider quirks</h2>
+
+<h3 id="pollinations">Pollinations.ai</h3>
+<ul>
+  <li>POST to <code>https://text.pollinations.ai/openai</code> (NOT <code>/v1/chat/completions</code>). Schema is otherwise pure OpenAI.</li>
+  <li>No auth header. No API key concept.</li>
+  <li>Response <code>Content-Type</code> can be <code>application/json</code> (full OpenAI envelope) OR <code>text/plain</code> (just the model output). The provider handles both shapes.</li>
+  <li>Rate limit is ~1 request per 3-5 seconds per source IP; bursts get silently throttled (200 response with an empty/short body). If you get an empty response, wait a few seconds and retry.</li>
+  <li>Default model id is <code>openai-large</code> — Pollinations uses friendly names, not OpenAI's. Other useful values: <code>openai</code> (gpt-4o-mini), <code>mistral</code>, <code>deepseek</code>, <code>qwen-coder</code>.</li>
+  <li>Sponsored by the Pollinations community; service can vanish without notice. Treat success as a happy surprise, not a guarantee.</li>
+</ul>
+
+<h3 id="duckduckgo">DuckDuckGo AI Chat</h3>
+<ul>
+  <li>Two-step protocol:
+    <ol>
+      <li><code>GET https://duckduckgo.com/duckchat/v1/status</code> with header <code>x-vqd-accept: 1</code>; response header <code>x-vqd-4</code> is the session token.</li>
+      <li><code>POST https://duckduckgo.com/duckchat/v1/chat</code> with <code>x-vqd-4: &lt;token&gt;</code>.</li>
+    </ol>
+  </li>
+  <li>Response is SSE (<code>data: {"message":"..."}\n</code> lines); concat all <code>message</code> fields, ignore <code>[DONE]</code>.</li>
+  <li>The vqd token rotates per session. If you get HTTP 418 ("I'm a teapot") it usually means the token expired or DDG bumped its handshake — refresh and retry.</li>
+  <li>DuckDuckGo does NOT support a separate <code>system</code> message; we concatenate system + user into a single user turn.</li>
+  <li>Models exposed: <code>gpt-4o-mini</code>, <code>claude-3-haiku-20240307</code>, <code>meta-llama/Llama-3.3-70B-Instruct-Turbo</code>, <code>mistralai/Mistral-Small-24B-Instruct-2501</code>, <code>o3-mini</code>. Map friendly names &harr; full names in <code>duckduckgo.ts</code>'s <code>MODELS</code> dict.</li>
+  <li>User-Agent matters — endpoints reject empty or curl-default UAs. We send a Chrome-on-macOS UA.</li>
+</ul>
+
+<h3 id="huggingface">HuggingFace router</h3>
+<ul>
+  <li>OpenAI-compatible endpoint at <code>https://router.huggingface.co/v1/chat/completions</code>. The router fronts many backends (Inference Providers, Together, Fireworks, etc.) and picks one per model.</li>
+  <li>Free without a key but rate-limited per source IP — usually fine for occasional commit-message use, painful for batch.</li>
+  <li>Passing a HF token (from <code>huggingface.co/settings/tokens</code>) via <code>Authorization: Bearer ...</code> bumps quota and unlocks gated models.</li>
+  <li>Default model is <code>Qwen/Qwen2.5-7B-Instruct</code> — small, fast, good enough for short structured JSON. Override via <code>gitCommitSuggestion.model</code>: try <code>meta-llama/Llama-3.3-70B-Instruct</code> for higher quality.</li>
+  <li>Some models gated behind <code>response_format: json_object</code> compatibility; if you see "json_object not supported" in errors, switch model.</li>
+</ul>
+
 
 <h3 id="default-key">Bundled default Mistral key</h3>
 <div class="warn">

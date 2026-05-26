@@ -34,6 +34,46 @@
 </thead>
 <tbody>
 <tr>
+  <td><code>auto</code></td>
+  <td>(virtual)</td>
+  <td>chain</td>
+  <td>—</td>
+  <td class="yes">Yes</td>
+  <td class="no">No</td>
+  <td>—</td>
+  <td><strong>Default.</strong> Walks pollinations → duckduckgo → huggingface → mistral and returns the first success.</td>
+</tr>
+<tr>
+  <td><code>pollinations</code></td>
+  <td><code>PollinationsProvider</code></td>
+  <td>OpenAI-like <code>/openai</code></td>
+  <td><code>openai-large</code></td>
+  <td class="yes">Yes</td>
+  <td class="no">No</td>
+  <td>None</td>
+  <td>Zero-config free gateway. GPT-4o-class. Throttles at ~1 req/3-5s per IP.</td>
+</tr>
+<tr>
+  <td><code>duckduckgo</code></td>
+  <td><code>DuckDuckGoProvider</code></td>
+  <td>Reverse-engineered SSE</td>
+  <td><code>gpt-4o-mini</code></td>
+  <td class="yes">Yes</td>
+  <td class="no">No</td>
+  <td>vqd token (auto)</td>
+  <td>Two-step handshake. Models: gpt-4o-mini, claude-haiku, llama-3.3-70b, mistral-small, o3-mini.</td>
+</tr>
+<tr>
+  <td><code>huggingface</code></td>
+  <td><code>HuggingFaceProvider</code></td>
+  <td>OpenAI <code>/chat/completions</code></td>
+  <td><code>Qwen/Qwen2.5-7B-Instruct</code></td>
+  <td class="yes">Yes</td>
+  <td class="yes">Optional</td>
+  <td>Bearer (optional)</td>
+  <td>Free without key (rate-limited per IP); HF token bumps quota and unlocks gated models.</td>
+</tr>
+<tr>
   <td><code>mistral</code></td>
   <td><code>OpenAICompatibleProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
@@ -41,7 +81,7 @@
   <td class="yes">Yes</td>
   <td class="yes">Yes</td>
   <td>Bearer</td>
-  <td>Free tier ~1 req/s. Default provider.</td>
+  <td>Free tier ~1 req/s. Bundled default key shipped — user key wins.</td>
 </tr>
 <tr>
   <td><code>openai</code></td>
@@ -98,11 +138,13 @@
 
 <h2>When to use what</h2>
 <ul>
-  <li><strong>You just want it to work, free, with a key:</strong> Mistral. Default.</li>
-  <li><strong>You want speed and free:</strong> Groq with <code>llama-3.1-8b-instant</code>.</li>
-  <li><strong>You want offline / privacy:</strong> Ollama with a local model. Slower first call.</li>
+  <li><strong>You want it to just work with zero setup:</strong> <code>auto</code> (default). Tries 4 providers in turn.</li>
+  <li><strong>You want quality, free, no key:</strong> <code>pollinations</code> on <code>openai-large</code>.</li>
+  <li><strong>You want frontier models without a key:</strong> <code>duckduckgo</code> with <code>o3-mini</code> or <code>claude-haiku</code>.</li>
+  <li><strong>You want speed and free with a key:</strong> Groq with <code>llama-3.1-8b-instant</code>.</li>
+  <li><strong>You want offline / privacy:</strong> Ollama with a local model.</li>
   <li><strong>You have a paid OpenAI/Anthropic key already:</strong> use that — best quality.</li>
-  <li><strong>You explicitly accept the risks of unofficial reverse proxies:</strong> g4f, but Mistral fallback should still be configured.</li>
+  <li><strong>You explicitly accept the risks of unofficial reverse proxies:</strong> g4f.</li>
 </ul>
 
 </body>
