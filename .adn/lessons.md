@@ -19,6 +19,14 @@ Apply: with rootDir=`.` and multi-dir include, tsc preserves the src/ prefix in 
 Context: VSCode webviews sandbox aggressively. Browser-style `<link>` to local CSS or `require()` inside the inline script silently fails.
 Apply: build the entire UI as one self-contained HTML string with inline `<style>` and one nonce'd `<script>`. For icons that need to be solid+themed, use inline SVG with `fill="currentColor"`.
 
+### Inject SVG into a webview's runtime JS string via `${JSON.stringify(SVG)}`
+Context: webview script needs the raw SVG markup at runtime to swap an emoji for an icon inside dynamically-rendered HTML. `bannerEl.innerHTML = "..." + RAW_SVG + "..."` doesn't work because the SVG contains quotes/angle brackets that break the JS literal.
+Apply: in the host-side template literal that emits the script, write `const remoteIcon = ${JSON.stringify(REMOTE_SVG)};`. The `JSON.stringify` runs at host build time, escaping the SVG into a valid JS string literal that the runtime script can concat freely.
+
+### Multi-tone source SVG → flatten to currentColor
+Context: source SVGs from svgrepo often have multiple explicit `fill="#XXXXXX"` colors. Inlining them locks the icon to those colors and breaks dark/HC themes.
+Apply: change all `fill="..."` to either omit (inherit currentColor via the `fill="currentColor"` on `<svg>`) or use `fill-opacity` for the lighter shade. The icon then themes via `color:` CSS.
+
 ### `vscode.SecretStorage.get` returns `Thenable`, not `Promise`
 Context: passing `secrets.get(...)` as a `Promise<string | undefined>` callback errors `TS2739: missing catch, finally, [Symbol.toStringTag]`.
 Apply: type the callback signature as `PromiseLike<string | undefined>` or wrap the call.

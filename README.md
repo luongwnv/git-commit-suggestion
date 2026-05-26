@@ -6,7 +6,7 @@ UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-pl
 
 A dedicated **Commit Suggestions** webview lives in its own Activity Bar container — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
 
-The default `auto` provider tries three no-key providers (Pollinations, DuckDuckGo, HuggingFace) in turn. Zero setup required to start. Providers that need an API key (Mistral, OpenAI, Anthropic, Groq) are BYOK — paste your key via the ⚙️ panel or the command palette.
+The default `auto` provider tries three zero-config free providers (🐋 Whale, 🦫 Platypus, 🐻‍❄️ Polar Bear) in turn. No API key needed to start. Paid providers (Mistral, OpenAI, Anthropic, Groq) are BYOK — paste your key via the settings panel or the command palette.
 
 > **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
@@ -31,18 +31,22 @@ docs/
 
 ## Provider status
 
-| Provider | Type | Free? | Key required? | Setting | Status |
-|----------|------|-------|---------------|---------|--------|
-| **auto** | Chain | ✅ | No | `provider: auto` | **default** — tries pollinations → duckduckgo → huggingface |
-| pollinations | Public gateway | ✅ free | No | `provider: pollinations` | zero-config, GPT-4o-class on default model |
-| duckduckgo | DDG AI Chat | ✅ free | No | `provider: duckduckgo` | reverse-engineered, vqd handshake, GPT-4o-mini / Claude Haiku / Llama / Mistral / o3-mini |
-| huggingface | HF router | ✅ free (BYOK bumps quota) | No (optional) | `provider: huggingface` | OpenAI-compatible, Qwen 2.5 7B default |
-| mistral | Official API | ✅ free tier | Yes (BYOK) | `provider: mistral` | supported |
-| openai | Official API | ❌ BYOK paid | Yes | `provider: openai` | supported |
-| anthropic | Official API | ❌ BYOK paid | Yes | `provider: anthropic` | supported |
-| groq | Official API | ✅ free tier | Yes | `provider: groq` | supported |
-| ollama | Local | ✅ free | No | `provider: ollama` | supported |
-| g4f | Reverse proxy | ⚠️ unofficial | No | `provider: g4f` + `enableUnofficialProviders: true` | opt-in, no SLA, ToS-violating |
+UI labels use animal codenames; the table also lists the internal `provider:` id used in settings.
+
+| UI label | id | Free? | Key required? | Notes |
+|----------|----|-------|---------------|-------|
+| **Auto** | `auto` | ✅ | No | **default** — tries Whale → Platypus → Polar Bear and returns first success |
+| 🐋 Whale | `pollinations` | ✅ | No | zero-config public gateway, GPT-4o-class default model |
+| 🦫 Platypus | `duckduckgo` | ✅ | No | multiple frontier models (GPT-4o-mini, Claude Haiku, Llama, Mistral, o3-mini) |
+| 🐻‍❄️ Polar Bear | `huggingface` | ✅ | Optional | OpenAI-compatible router; pasting a token bumps quota |
+| 🦎 Axolotl | `ollama` | ✅ | No | local LLM via Ollama daemon |
+| 🦖 Dinosaur | `g4f` | ⚠️ | No | opt-in (`enableUnofficialProviders: true`); no SLA, ToS-violating |
+| Mistral | `mistral` | ✅ | Yes (BYOK) | free tier available at console.mistral.ai |
+| OpenAI | `openai` | ❌ paid | Yes | |
+| Anthropic | `anthropic` | ❌ paid | Yes | |
+| Groq | `groq` | ✅ free tier | Yes | very fast Llama/Mixtral |
+
+Upstream endpoints, model lists, and protocol quirks for each id live in [docs/provider-comparison.html](docs/provider-comparison.html).
 
 The default `auto` chain means **the extension works with zero setup** — no API key needed. The first no-key provider that responds wins.
 

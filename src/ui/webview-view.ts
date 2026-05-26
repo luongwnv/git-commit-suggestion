@@ -44,17 +44,20 @@ interface ViewState {
   suggestions: SerializedSuggestion[];
 }
 
+// Free zero-config providers are aliased to animal codenames in the UI so the
+// extension doesn't advertise upstream provider names. The internal id (used
+// by the orchestrator + config) is unchanged.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "auto", label: "Auto (try all free providers)" },
-  { id: "pollinations", label: "Pollinations (free, no key)" },
-  { id: "duckduckgo", label: "DuckDuckGo AI (free, no key)" },
-  { id: "huggingface", label: "HuggingFace (free, optional key)" },
-  { id: "mistral", label: "Mistral (free tier or BYOK)" },
+  { id: "pollinations", label: "🐋 Whale (free, no key)" },
+  { id: "duckduckgo", label: "🦫 Platypus (free, no key)" },
+  { id: "huggingface", label: "🐻‍❄️ Polar Bear (free, optional key)" },
+  { id: "ollama", label: "🦎 Axolotl (local)" },
+  { id: "g4f", label: "🦖 Dinosaur (unofficial)" },
+  { id: "mistral", label: "Mistral (BYOK)" },
   { id: "openai", label: "OpenAI (BYOK)" },
   { id: "anthropic", label: "Anthropic (BYOK)" },
-  { id: "groq", label: "Groq (free tier)" },
-  { id: "ollama", label: "Ollama (local)" },
-  { id: "g4f", label: "g4f (unofficial)" },
+  { id: "groq", label: "Groq (BYOK)" },
 ];
 
 const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
@@ -99,11 +102,19 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   showBody: true,
 };
 
-// Settings icon. Solid SVG, no outer rectangle frame — just the form/list
-// content paths from settings-svgrepo-com.svg. Inline so the webview's strict
-// CSP (no external assets) stays happy and the icon scales/recolors with
-// currentColor.
+// Settings icon for the header. Solid SVG, no outer rectangle frame — just
+// the form/list content paths. Inline so the webview's strict CSP (no
+// external assets) stays happy and the icon scales/recolors with currentColor.
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 218.207 218.207" fill="currentColor" aria-hidden="true"><path d="M54.521,105.207h35.13c12.875,0,23.349-10.487,23.349-23.379c0-12.892-10.474-23.379-23.349-23.379h-35.13c-12.875,0-23.349,10.487-23.349,23.379C31.172,94.72,41.646,105.207,54.521,105.207z M54.521,66.241h35.13c8.577,0,15.556,6.99,15.556,15.586c0,8.596-6.979,15.586-15.556,15.586h-35.13c-8.577,0-15.556-6.99-15.556-15.586C38.965,73.231,45.944,66.241,54.521,66.241z"/><rect x="128.586" y="58.448" width="58.599" height="7.793"/><rect x="128.586" y="74.034" width="38.966" height="7.793"/><rect x="128.586" y="113" width="27.276" height="7.793"/><rect x="128.586" y="128.586" width="50.832" height="7.793"/><rect x="128.586" y="144.172" width="50.832" height="7.793"/><path d="M85.724,93.517c6.446,0,11.69-5.244,11.69-11.69c0-6.446-5.244-11.69-11.69-11.69s-11.69,5.244-11.69,11.69C74.034,88.274,79.278,93.517,85.724,93.517z M85.724,77.931c2.148,0,3.897,1.746,3.897,3.897s-1.748,3.897-3.897,3.897s-3.897-1.746-3.897-3.897S83.576,77.931,85.724,77.931z"/><path d="M54.521,159.759h35.13c12.875,0,23.349-10.487,23.349-23.379c0-12.893-10.474-23.38-23.349-23.38h-35.13c-12.875,0-23.349,10.487-23.349,23.379C31.172,149.271,41.646,159.759,54.521,159.759z M54.521,120.793h35.13c8.577,0,15.556,6.99,15.556,15.586c0,8.596-6.979,15.586-15.556,15.586h-35.13c-8.577,0-15.556-6.99-15.556-15.586C38.966,127.783,45.944,120.793,54.521,120.793z"/><path d="M58.448,148.069c6.446,0,11.69-5.244,11.69-11.69c0-6.446-5.244-11.69-11.69-11.69s-11.69,5.244-11.69,11.69C46.759,142.825,52.002,148.069,58.448,148.069z M58.448,132.483c2.148,0,3.897,1.746,3.897,3.897c0,2.15-1.748,3.897-3.897,3.897c-2.148,0-3.897-1.746-3.897-3.897C54.552,134.229,56.3,132.483,58.448,132.483z"/></svg>`;
+
+// Remote-control SVG used in place of 🔑 in the "API key required" banner.
+// Source: assets/remote.svg. Original two-tone (light body, dark buttons)
+// flattened to currentColor so it themes properly.
+const REMOTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -0.01 64.04 64.04" fill="currentColor" aria-hidden="true"><path d="M62.886,12.297L51.741,1.154c-1.539-1.539-4.034-1.539-5.573,0L1.154,46.16c-1.539,1.539-1.539,4.033,0,5.571l11.145,11.144c1.539,1.538,4.034,1.538,5.572,0l45.015-45.006C64.425,16.33,64.425,13.836,62.886,12.297z" fill-opacity="0.35"/><circle cx="44.063" cy="20.035" r="8.006"/><circle cx="44.063" cy="20.035" r="4.003" fill-opacity="0.35"/><circle cx="31.05" cy="27.041" r="3.002"/><circle cx="37.056" cy="33.046" r="3.003"/></svg>`;
+
+// Pencil-edit SVG used inline in the banner text where ⚙️ used to be.
+// Source: assets/setting-edit-svgrepo-com.svg. Flattened fill to currentColor.
+const PENCIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true" style="vertical-align: -2px;"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -398,7 +409,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     font-size: 0.85em;
     line-height: 1.4;
   }
-  .banner-title { font-weight: 600; margin-bottom: 4px; }
+  .banner-title { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .banner-icon { display: inline-flex; align-items: center; }
+  .banner-icon svg { display: block; }
+  .inline-icon { display: inline-flex; align-items: center; vertical-align: -2px; margin: 0 1px; }
+  .inline-icon svg { display: block; }
   .banner-actions { display: flex; gap: 6px; margin-top: 6px; }
   .banner-actions button { font-size: 0.95em; padding: 3px 8px; }
   .spinner {
@@ -501,11 +516,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       return;
     }
     const provider = state.settings.providerId;
+    const remoteIcon = ${JSON.stringify(REMOTE_SVG)};
+    const pencilIcon = ${JSON.stringify(PENCIL_SVG)};
     bannerEl.innerHTML =
       '<div class="banner">'
-      + '<div class="banner-title">🔑 API key required</div>'
+      + '<div class="banner-title"><span class="banner-icon">' + remoteIcon + "</span> API key required</div>"
       + "The <b>" + escapeHtml(provider) + "</b> provider needs an API key. "
-      + "Paste yours below, or switch to a no-key provider from the ⚙️ menu."
+      + "Paste yours below, or switch to a no-key provider from the "
+      + '<span class="inline-icon">' + pencilIcon + "</span> menu."
       + '<div class="banner-actions">'
       + (provider === "mistral"
           ? '<button class="secondary" id="open-console">Get free key</button>'
