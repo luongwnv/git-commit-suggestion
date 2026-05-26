@@ -54,7 +54,7 @@
         {
           "id": "gitCommitSuggestion",
           "title": "Commit Suggestion",
-          "icon": "assets/icon2.png"
+          "icon": "assets/icon.png"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "type": "webview",
           "id": "gitCommitSuggestion.view",
           "name": "",
-          "icon": "assets/icon2.png"
+          "icon": "assets/icon.png"
         }
       ]
     },
