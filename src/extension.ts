@@ -19,9 +19,28 @@ import { log } from "./utils/logger";
 
 const SECRET_KEY = (provider: string) => `gitCommitSuggestion.apiKey.${provider}`;
 
+// Per-field defaults used when a stored value is missing OR fails schema
+// validation (e.g. an upgrade dropped the "bilingual" language enum but
+// the user's settings.json still has it). Keeping the extension activatable
+// matters more than honouring a stale value.
+const CONFIG_DEFAULTS: ExtensionConfig = {
+  provider: "auto",
+  model: "",
+  language: "en",
+  detailLevel: "normal",
+  bestPractices: ["imperative", "subject50", "capitalize", "noPeriod", "explainWhy"],
+  suggestionCount: 4,
+  maxDiffTokens: 6000,
+  enableUnofficialProviders: false,
+  customPromptPath: "",
+  ollamaBaseUrl: "http://localhost:11434",
+  showEmoji: true,
+  showBody: true,
+};
+
 function readConfig(): ExtensionConfig {
   const c = vscode.workspace.getConfiguration("gitCommitSuggestion");
-  return ExtensionConfigSchema.parse({
+  const raw = {
     provider: c.get("provider"),
     model: c.get("model", ""),
     language: c.get("language"),
@@ -34,7 +53,22 @@ function readConfig(): ExtensionConfig {
     ollamaBaseUrl: c.get("ollamaBaseUrl"),
     showEmoji: c.get("showEmoji"),
     showBody: c.get("showBody"),
-  });
+  };
+  const parsed = ExtensionConfigSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  // Validation failed (usually because the user has a value from an older
+  // version that's no longer in the enum). Log it for debugging but never
+  // throw — that would leave the webview stuck on the loading spinner.
+  log(`Config validation failed; using defaults. Issues: ${JSON.stringify(parsed.error.issues).slice(0, 400)}`);
+  // Merge user values per-field: keep whatever survives a per-field reparse,
+  // fall back to defaults for the rest.
+  const merged: Record<string, unknown> = { ...CONFIG_DEFAULTS };
+  for (const key of Object.keys(CONFIG_DEFAULTS) as (keyof ExtensionConfig)[]) {
+    const fieldSchema = ExtensionConfigSchema.shape[key];
+    const fieldParse = fieldSchema.safeParse((raw as Record<string, unknown>)[key]);
+    if (fieldParse.success) merged[key] = fieldParse.data;
+  }
+  return ExtensionConfigSchema.parse(merged);
 }
 
 function settingsFromConfig(config: ExtensionConfig): DisplaySettings {
@@ -127,13 +161,22 @@ async function runSuggest(
 // Push the latest settings + hasUserKey to the view without wiping any
 // suggestions that may already be on screen. Called after every toggle so
 // e.g. flipping "show emoji" re-styles the cards instead of clearing them.
+//
+// Wrapped in try/catch because the webview's first "ready" message comes
+// before any user interaction — any throw here leaves the view stuck on
+// the loading spinner forever. Always settle the state.
 async function refreshIdleState(
   secrets: vscode.SecretStorage,
   view: CommitSuggestionViewProvider,
 ): Promise<void> {
-  const config = readConfig();
-  const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
-  view.refreshSettings(settingsFromConfig(config), hasUserKey);
+  try {
+    const config = readConfig();
+    const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
+    view.refreshSettings(settingsFromConfig(config), hasUserKey);
+  } catch (err) {
+    log(`refreshIdleState failed: ${(err as Error).message}`);
+    view.refreshSettings(settingsFromConfig(CONFIG_DEFAULTS), false);
+  }
 }
 
 async function applySuggestion(

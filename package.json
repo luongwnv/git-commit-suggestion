@@ -2,7 +2,7 @@
   "name": "git-commit-suggestion",
   "displayName": "Git Commit Suggestion",
   "description": "LLM-powered Conventional Commits suggestions from the staged diff. Bilingual EN+VI. Mistral free tier by default; BYOK for OpenAI/Anthropic/Groq; local Ollama; optional unofficial reverse-proxy provider.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "luongwnv",
   "license": "MIT",
   "repository": {

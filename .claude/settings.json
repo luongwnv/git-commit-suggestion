@@ -35,7 +35,10 @@
       "Read(//Users/lit/Desktop/**)",
       "Bash(find . -name \"icon.png\" -not -path \"*/node_modules/*\" 2>&1 | head -5 && echo \"---\" && ls -la ~/Downloads/icon.png ~/Desktop/icon.png 2>&1 | head -5)",
       "Read(//Users/lit/Downloads/**)",
-      "Bash(grep -n \"GEAR_SVG = \\\\`<svg\\\\|height: 32px;\\\\|width: 32px;\" src/ui/webview-view.ts)"
+      "Bash(grep -n \"GEAR_SVG = \\\\`<svg\\\\|height: 32px;\\\\|width: 32px;\" src/ui/webview-view.ts)",
+      "Bash(curl -sS -o /dev/null -w 'Marketplace API: HTTP %{http_code}, time %{time_total}s\\\\n' https://marketplace.visualstudio.com/items?itemName=luongwnv.git-commit-suggestion -m 30)",
+      "Bash(curl -sS -w 'VSIX gallery API: HTTP %{http_code}, time %{time_total}s\\\\n' -X POST https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery -H 'Accept: application/json;api-version=3.0-preview.1' -H 'Content-Type: application/json' -d '{\"filters\":[{\"criteria\":[{\"filterType\":7,\"value\":\"luongwnv.git-commit-suggestion\"}]}],\"flags\":914}' -m 30)",
+      "Bash(curl -sS -o /tmp/test-download.vsix -w 'HTTP %{http_code} | %{size_download} bytes | %{time_total}s | %{speed_download} B/s\\\\n' https://luongwnv.gallerycdn.vsassets.io/extensions/luongwnv/git-commit-suggestion/0.1.0/1779796970902/Microsoft.VisualStudio.Services.VSIXPackage -m 60)"
     ]
   }
 }

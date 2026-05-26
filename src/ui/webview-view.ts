@@ -251,7 +251,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   private async handleMessage(msg: FromWebview): Promise<void> {
     switch (msg.type) {
       case "ready":
-        await this.cb.onReady();
+        // Always post a state, even if onReady throws — otherwise the
+        // webview's loading spinner has no exit condition and stays
+        // forever. The constructor default state is a safe baseline.
+        try { await this.cb.onReady(); } catch { /* state already updated by callback's own try/catch */ }
         this.post();
         break;
       case "suggest":
