@@ -33,16 +33,6 @@ describe("formatCommitMessage", () => {
     assert.ok(!msg.includes("Wires up"));
   });
 
-  it("renders bilingual with both languages", () => {
-    const msg = formatCommitMessage(sample, {
-      language: "bilingual",
-      showEmoji: false,
-      showBody: true,
-    });
-    assert.ok(msg.includes("add login endpoint"));
-    assert.ok(msg.includes("VI: thêm endpoint đăng nhập"));
-  });
-
   it("handles empty scope", () => {
     const s = { ...sample, scope: "" };
     const msg = formatCommitMessage(s, {

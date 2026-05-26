@@ -15,7 +15,6 @@ export const ProviderIdSchema = z.enum([
 export type ProviderId = z.infer<typeof ProviderIdSchema>;
 
 export const LanguageSchema = z.enum([
-  "bilingual",
   "en",
   "vi",
   "zh",
@@ -40,31 +39,30 @@ export const LanguageSchema = z.enum([
 ]);
 export type Language = z.infer<typeof LanguageSchema>;
 
-// Human-readable labels for each language, used by the prompt and the UI.
-// `bilingual` is special — the model fills both English and Vietnamese.
+// Each language is a single-language output. There is no `bilingual` mode
+// anymore — pick one language and the entire panel + commit messages use it.
 export const LANGUAGE_LABELS: Record<Language, string> = {
-  bilingual: "English + Vietnamese (side by side)",
   en: "English",
   vi: "Tiếng Việt",
-  zh: "简体中文 (Chinese Simplified)",
-  "zh-tw": "繁體中文 (Chinese Traditional)",
-  ja: "日本語 (Japanese)",
-  ko: "한국어 (Korean)",
-  es: "Español (Spanish)",
-  fr: "Français (French)",
-  de: "Deutsch (German)",
-  pt: "Português (Portuguese)",
-  ru: "Русский (Russian)",
-  id: "Bahasa Indonesia (Indonesian)",
-  th: "ภาษาไทย (Thai)",
-  ar: "العربية (Arabic)",
-  hi: "हिन्दी (Hindi)",
-  it: "Italiano (Italian)",
-  tr: "Türkçe (Turkish)",
-  pl: "Polski (Polish)",
-  nl: "Nederlands (Dutch)",
-  uk: "Українська (Ukrainian)",
-  sv: "Svenska (Swedish)",
+  zh: "简体中文",
+  "zh-tw": "繁體中文",
+  ja: "日本語",
+  ko: "한국어",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  pt: "Português",
+  ru: "Русский",
+  id: "Bahasa Indonesia",
+  th: "ภาษาไทย",
+  ar: "العربية",
+  hi: "हिन्दी",
+  it: "Italiano",
+  tr: "Türkçe",
+  pl: "Polski",
+  nl: "Nederlands",
+  uk: "Українська",
+  sv: "Svenska",
 };
 
 export const DetailLevelSchema = z.enum(["concise", "normal", "detailed"]);
@@ -118,11 +116,6 @@ export const DETAIL_LEVEL_TRANSLATIONS: Partial<
     concise: "Vắn tắt — chỉ tiêu đề",
     normal: "Tổng quan — tiêu đề + mô tả ngắn",
     detailed: "Chi tiết — tiêu đề + mô tả nhiều đoạn",
-  },
-  bilingual: {
-    concise: "Concise / Vắn tắt — subject only",
-    normal: "Normal / Tổng quan — subject + brief body",
-    detailed: "Detailed / Chi tiết — subject + multi-paragraph",
   },
   zh: {
     concise: "简洁 — 仅标题行",
@@ -225,6 +218,306 @@ export function detailLevelLabel(level: DetailLevel, language: Language): string
   return (
     DETAIL_LEVEL_TRANSLATIONS[language]?.[level] ?? DETAIL_LEVEL_LABELS[level]
   );
+}
+
+// =============================================================================
+// Webview UI strings — translated into the user's output language so the whole
+// panel switches when the language dropdown changes (labels, buttons, banner).
+// Languages not listed fall back to English. Translations are deliberately
+// short to fit the narrow sidebar.
+// =============================================================================
+
+export type UiStringKey =
+  | "provider"
+  | "outputLanguage"
+  | "detailLevel"
+  | "bestPractices"
+  | "suggestionCount"
+  | "showEmoji"
+  | "showBody"
+  | "suggestBtn"
+  | "useThisBtn"
+  | "stageHint"
+  | "generating"
+  | "providerLabel"
+  | "apiKeyRequired"
+  | "apiKeyBody"
+  | "getFreeKey"
+  | "pasteKey"
+  | "bp_imperative"
+  | "bp_subject50"
+  | "bp_capitalize"
+  | "bp_noPeriod"
+  | "bp_bodyWrap72"
+  | "bp_explainWhy"
+  | "bp_referenceIssues";
+
+const EN_STRINGS: Record<UiStringKey, string> = {
+  provider: "Provider",
+  outputLanguage: "Output language",
+  detailLevel: "Detail level",
+  bestPractices: "Best practices",
+  suggestionCount: "Number of suggestions (1-8)",
+  showEmoji: "Show emoji prefix",
+  showBody: "Include explanation body",
+  suggestBtn: "Suggest",
+  useThisBtn: "Use this",
+  stageHint: "Stage some files, then click",
+  generating: "Generating suggestions…",
+  providerLabel: "Provider:",
+  apiKeyRequired: "API key required",
+  apiKeyBody: "The {provider} provider needs an API key. Paste yours below, or switch to a no-key provider from the {icon} menu.",
+  getFreeKey: "Get free key",
+  pasteKey: "Paste my key",
+  bp_imperative: "Imperative mood (Add, not Added)",
+  bp_subject50: "Subject ≤ 50 characters",
+  bp_capitalize: "Capitalize subject line",
+  bp_noPeriod: "No period at end of subject",
+  bp_bodyWrap72: "Body wraps at 72 characters",
+  bp_explainWhy: "Body explains what & why (not how)",
+  bp_referenceIssues: "Reference issues/PRs in footer",
+};
+
+export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> = {
+  en: EN_STRINGS,
+
+  vi: {
+    provider: "Nhà cung cấp",
+    outputLanguage: "Ngôn ngữ đầu ra",
+    detailLevel: "Mức chi tiết",
+    bestPractices: "Quy tắc tốt",
+    suggestionCount: "Số gợi ý (1-8)",
+    showEmoji: "Hiển thị emoji ở đầu",
+    showBody: "Kèm phần giải thích",
+    suggestBtn: "Gợi ý",
+    useThisBtn: "Dùng cái này",
+    stageHint: "Stage một số file, rồi nhấn",
+    generating: "Đang sinh gợi ý…",
+    providerLabel: "Nhà cung cấp:",
+    apiKeyRequired: "Cần API key",
+    apiKeyBody: "Nhà cung cấp {provider} cần API key. Dán key của bạn bên dưới, hoặc chuyển sang nhà cung cấp không cần key trong menu {icon}.",
+    getFreeKey: "Lấy key miễn phí",
+    pasteKey: "Dán key của tôi",
+    bp_imperative: "Mệnh lệnh thức (Add, không phải Added)",
+    bp_subject50: "Tiêu đề ≤ 50 ký tự",
+    bp_capitalize: "Viết hoa chữ cái đầu tiêu đề",
+    bp_noPeriod: "Không có dấu chấm cuối tiêu đề",
+    bp_bodyWrap72: "Body xuống dòng ở 72 ký tự",
+    bp_explainWhy: "Body giải thích cái gì + tại sao (không phải làm thế nào)",
+    bp_referenceIssues: "Tham chiếu issue/PR ở footer",
+  },
+
+  zh: {
+    provider: "提供商",
+    outputLanguage: "输出语言",
+    detailLevel: "详细程度",
+    bestPractices: "最佳实践",
+    suggestionCount: "建议数量 (1-8)",
+    showEmoji: "显示 emoji 前缀",
+    showBody: "包含说明正文",
+    suggestBtn: "生成建议",
+    useThisBtn: "使用此项",
+    stageHint: "暂存一些文件，然后点击",
+    generating: "正在生成建议…",
+    providerLabel: "提供商：",
+    apiKeyRequired: "需要 API key",
+    apiKeyBody: "{provider} 提供商需要 API key。请在下方粘贴，或在 {icon} 菜单中切换到无需 key 的提供商。",
+    getFreeKey: "获取免费 key",
+    pasteKey: "粘贴我的 key",
+    bp_imperative: "祈使语气 (Add, 而非 Added)",
+    bp_subject50: "标题 ≤ 50 字符",
+    bp_capitalize: "标题首字母大写",
+    bp_noPeriod: "标题末尾无句号",
+    bp_bodyWrap72: "正文每行 72 字符换行",
+    bp_explainWhy: "正文说明做了什么 + 为什么 (而非如何)",
+    bp_referenceIssues: "在 footer 引用 issue/PR",
+  },
+
+  ja: {
+    provider: "プロバイダー",
+    outputLanguage: "出力言語",
+    detailLevel: "詳細レベル",
+    bestPractices: "ベストプラクティス",
+    suggestionCount: "提案数 (1-8)",
+    showEmoji: "絵文字プレフィックスを表示",
+    showBody: "説明本文を含める",
+    suggestBtn: "提案する",
+    useThisBtn: "これを使う",
+    stageHint: "ファイルをステージしてからクリック",
+    generating: "提案を生成中…",
+    providerLabel: "プロバイダー:",
+    apiKeyRequired: "API key が必要",
+    apiKeyBody: "{provider} プロバイダーには API key が必要です。下に貼り付けるか、{icon} メニューから key 不要のプロバイダーに切り替えてください。",
+    getFreeKey: "無料 key を取得",
+    pasteKey: "key を貼り付け",
+    bp_imperative: "命令形 (Add であって Added ではない)",
+    bp_subject50: "件名 ≤ 50 文字",
+    bp_capitalize: "件名の先頭を大文字に",
+    bp_noPeriod: "件名末尾にピリオドなし",
+    bp_bodyWrap72: "本文は 72 文字で折り返す",
+    bp_explainWhy: "本文は何を + なぜを説明 (どうやってではない)",
+    bp_referenceIssues: "フッターで issue/PR を参照",
+  },
+
+  ko: {
+    provider: "제공자",
+    outputLanguage: "출력 언어",
+    detailLevel: "상세 수준",
+    bestPractices: "모범 사례",
+    suggestionCount: "제안 수 (1-8)",
+    showEmoji: "이모지 접두사 표시",
+    showBody: "설명 본문 포함",
+    suggestBtn: "제안",
+    useThisBtn: "사용하기",
+    stageHint: "파일을 스테이지한 후 클릭",
+    generating: "제안 생성 중…",
+    providerLabel: "제공자:",
+    apiKeyRequired: "API key 필요",
+    apiKeyBody: "{provider} 제공자에는 API key가 필요합니다. 아래에 붙여넣거나 {icon} 메뉴에서 key가 필요 없는 제공자로 전환하세요.",
+    getFreeKey: "무료 key 받기",
+    pasteKey: "내 key 붙여넣기",
+    bp_imperative: "명령형 (Add, Added 아님)",
+    bp_subject50: "제목 ≤ 50자",
+    bp_capitalize: "제목 첫 글자 대문자",
+    bp_noPeriod: "제목 끝에 마침표 없음",
+    bp_bodyWrap72: "본문 72자에서 줄바꿈",
+    bp_explainWhy: "본문은 무엇을 + 왜 설명 (어떻게 아님)",
+    bp_referenceIssues: "footer에 issue/PR 참조",
+  },
+
+  es: {
+    provider: "Proveedor",
+    outputLanguage: "Idioma de salida",
+    detailLevel: "Nivel de detalle",
+    bestPractices: "Buenas prácticas",
+    suggestionCount: "Número de sugerencias (1-8)",
+    showEmoji: "Mostrar prefijo emoji",
+    showBody: "Incluir cuerpo explicativo",
+    suggestBtn: "Sugerir",
+    useThisBtn: "Usar este",
+    stageHint: "Prepara archivos y haz clic",
+    generating: "Generando sugerencias…",
+    providerLabel: "Proveedor:",
+    apiKeyRequired: "Se requiere clave API",
+    apiKeyBody: "El proveedor {provider} necesita una clave API. Pégala abajo o cambia a un proveedor sin clave en el menú {icon}.",
+    getFreeKey: "Obtener clave gratis",
+    pasteKey: "Pegar mi clave",
+    bp_imperative: "Modo imperativo (Add, no Added)",
+    bp_subject50: "Asunto ≤ 50 caracteres",
+    bp_capitalize: "Capitalizar la línea de asunto",
+    bp_noPeriod: "Sin punto al final del asunto",
+    bp_bodyWrap72: "Cuerpo a 72 caracteres por línea",
+    bp_explainWhy: "Cuerpo explica qué y por qué (no cómo)",
+    bp_referenceIssues: "Referenciar issues/PRs en footer",
+  },
+
+  fr: {
+    provider: "Fournisseur",
+    outputLanguage: "Langue de sortie",
+    detailLevel: "Niveau de détail",
+    bestPractices: "Bonnes pratiques",
+    suggestionCount: "Nombre de suggestions (1-8)",
+    showEmoji: "Afficher le préfixe emoji",
+    showBody: "Inclure le corps explicatif",
+    suggestBtn: "Suggérer",
+    useThisBtn: "Utiliser ceci",
+    stageHint: "Préparez des fichiers et cliquez",
+    generating: "Génération des suggestions…",
+    providerLabel: "Fournisseur :",
+    apiKeyRequired: "Clé API requise",
+    apiKeyBody: "Le fournisseur {provider} nécessite une clé API. Collez la vôtre ci-dessous, ou basculez vers un fournisseur sans clé via le menu {icon}.",
+    getFreeKey: "Obtenir une clé gratuite",
+    pasteKey: "Coller ma clé",
+    bp_imperative: "Mode impératif (Add, pas Added)",
+    bp_subject50: "Sujet ≤ 50 caractères",
+    bp_capitalize: "Capitaliser la ligne de sujet",
+    bp_noPeriod: "Pas de point en fin de sujet",
+    bp_bodyWrap72: "Corps à 72 caractères par ligne",
+    bp_explainWhy: "Corps explique quoi et pourquoi (pas comment)",
+    bp_referenceIssues: "Référencer issues/PRs en footer",
+  },
+
+  de: {
+    provider: "Anbieter",
+    outputLanguage: "Ausgabesprache",
+    detailLevel: "Detailgrad",
+    bestPractices: "Best Practices",
+    suggestionCount: "Anzahl der Vorschläge (1-8)",
+    showEmoji: "Emoji-Präfix anzeigen",
+    showBody: "Erklärenden Text einfügen",
+    suggestBtn: "Vorschlagen",
+    useThisBtn: "Diesen verwenden",
+    stageHint: "Dateien stagen, dann klicken",
+    generating: "Vorschläge werden generiert…",
+    providerLabel: "Anbieter:",
+    apiKeyRequired: "API-Schlüssel erforderlich",
+    apiKeyBody: "Der Anbieter {provider} benötigt einen API-Schlüssel. Füge deinen unten ein oder wechsle im {icon}-Menü zu einem Anbieter ohne Schlüssel.",
+    getFreeKey: "Kostenlosen Schlüssel holen",
+    pasteKey: "Meinen Schlüssel einfügen",
+    bp_imperative: "Imperativ (Add, nicht Added)",
+    bp_subject50: "Betreff ≤ 50 Zeichen",
+    bp_capitalize: "Betreffzeile großschreiben",
+    bp_noPeriod: "Kein Punkt am Betreffende",
+    bp_bodyWrap72: "Text bei 72 Zeichen umbrechen",
+    bp_explainWhy: "Text erklärt was & warum (nicht wie)",
+    bp_referenceIssues: "Issues/PRs in Footer referenzieren",
+  },
+
+  pt: {
+    provider: "Provedor",
+    outputLanguage: "Idioma de saída",
+    detailLevel: "Nível de detalhe",
+    bestPractices: "Boas práticas",
+    suggestionCount: "Número de sugestões (1-8)",
+    showEmoji: "Mostrar prefixo emoji",
+    showBody: "Incluir corpo explicativo",
+    suggestBtn: "Sugerir",
+    useThisBtn: "Usar este",
+    stageHint: "Prepare arquivos e clique",
+    generating: "Gerando sugestões…",
+    providerLabel: "Provedor:",
+    apiKeyRequired: "Chave API necessária",
+    apiKeyBody: "O provedor {provider} precisa de uma chave API. Cole a sua abaixo ou mude para um provedor sem chave no menu {icon}.",
+    getFreeKey: "Obter chave gratuita",
+    pasteKey: "Colar minha chave",
+    bp_imperative: "Modo imperativo (Add, não Added)",
+    bp_subject50: "Assunto ≤ 50 caracteres",
+    bp_capitalize: "Capitalizar linha de assunto",
+    bp_noPeriod: "Sem ponto no fim do assunto",
+    bp_bodyWrap72: "Corpo quebra em 72 caracteres",
+    bp_explainWhy: "Corpo explica o quê e por quê (não como)",
+    bp_referenceIssues: "Referenciar issues/PRs no rodapé",
+  },
+
+  ru: {
+    provider: "Провайдер",
+    outputLanguage: "Язык вывода",
+    detailLevel: "Уровень детализации",
+    bestPractices: "Лучшие практики",
+    suggestionCount: "Количество предложений (1-8)",
+    showEmoji: "Префикс с эмодзи",
+    showBody: "Включить описание",
+    suggestBtn: "Предложить",
+    useThisBtn: "Использовать",
+    stageHint: "Подготовьте файлы и нажмите",
+    generating: "Генерация предложений…",
+    providerLabel: "Провайдер:",
+    apiKeyRequired: "Требуется API-ключ",
+    apiKeyBody: "Провайдеру {provider} нужен API-ключ. Вставьте свой ниже или переключитесь на провайдера без ключа в меню {icon}.",
+    getFreeKey: "Получить бесплатный ключ",
+    pasteKey: "Вставить мой ключ",
+    bp_imperative: "Повелительное наклонение (Add, не Added)",
+    bp_subject50: "Заголовок ≤ 50 символов",
+    bp_capitalize: "Заглавная буква в заголовке",
+    bp_noPeriod: "Без точки в конце заголовка",
+    bp_bodyWrap72: "Тело — перенос на 72 символах",
+    bp_explainWhy: "Тело объясняет что и почему (не как)",
+    bp_referenceIssues: "Ссылка на issue/PR в футере",
+  },
+};
+
+export function uiString(key: UiStringKey, language: Language): string {
+  return UI_STRINGS[language]?.[key] ?? EN_STRINGS[key];
 }
 
 export const ExtensionConfigSchema = z.object({

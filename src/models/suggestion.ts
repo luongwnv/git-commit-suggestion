@@ -34,24 +34,15 @@ export function formatCommitMessage(s: Suggestion, opts: FormatOptions): string 
   // language into both subject_en and subject_vi — prefer subject_en, fall
   // back to subject_vi so we still produce something if the model only
   // populated one field.
+  // Each language is now a single-language output. The prompt instructs the
+  // LLM to write the requested language into subject_en (English/Vietnamese
+  // get the matching field; every other language is placed in subject_en).
   const pickPrimary = (): { subject: string; body: string } => {
     if (language === "vi") {
       return { subject: s.subject_vi || s.subject_en, body: s.body_vi || s.body_en };
     }
-    if (language === "en" || language === "bilingual") {
-      return { subject: s.subject_en || s.subject_vi, body: s.body_en || s.body_vi };
-    }
     return { subject: s.subject_en || s.subject_vi, body: s.body_en || s.body_vi };
   };
-
-  if (language === "bilingual") {
-    const header = `${emojiPrefix}${s.type}${scope}: ${s.subject_en || s.subject_vi}`;
-    const parts: string[] = [header];
-    if (showBody && s.body_en) parts.push("", s.body_en);
-    if (s.subject_vi) parts.push("", `VI: ${s.subject_vi}`);
-    if (showBody && s.body_vi) parts.push("", s.body_vi);
-    return parts.join("\n");
-  }
 
   const { subject, body } = pickPrimary();
   const header = `${emojiPrefix}${s.type}${scope}: ${subject}`;

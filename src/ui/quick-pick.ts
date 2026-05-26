@@ -27,7 +27,7 @@ export async function pickSuggestion(
     return {
       label: labelEn,
       description: detailVi || undefined,
-      detail: language === "bilingual" && s.body_en ? s.body_en : s.body_vi || s.body_en || undefined,
+      detail: s.body_en || s.body_vi || undefined,
       suggestion: s,
       finalMessage: formatCommitMessage(s, { language, showEmoji, showBody }),
     };

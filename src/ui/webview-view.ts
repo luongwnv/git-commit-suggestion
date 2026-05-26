@@ -7,6 +7,7 @@ import {
   DetailLevel,
   LANGUAGE_LABELS,
   Language,
+  UI_STRINGS,
 } from "../models/config";
 import { formatCommitMessage, Suggestion } from "../models/suggestion";
 
@@ -120,7 +121,7 @@ export interface ViewCallbacks {
 
 const DEFAULT_SETTINGS: DisplaySettings = {
   providerId: "auto",
-  language: "bilingual",
+  language: "en",
   detailLevel: "normal",
   bestPractices: ["imperative", "subject50", "capitalize", "noPeriod", "explainWhy"],
   suggestionCount: 4,
@@ -510,38 +511,38 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   <div class="header">
     <span class="provider" id="provider"></span>
     <button class="icon-btn" id="settings-btn" title="Settings">${GEAR_SVG}</button>
-    <button id="suggest-btn">Suggest</button>
+    <button id="suggest-btn" data-i18n="suggestBtn">Suggest</button>
   </div>
   <div class="settings hidden" id="settings">
     <div class="settings-row">
-      <label for="provider-select">Provider</label>
-      <select id="provider-select">${providerOptionsHtml}</select>
-    </div>
-    <div class="settings-row">
-      <label for="language-select">Output language</label>
+      <label for="language-select" data-i18n="outputLanguage">Output language</label>
       <select id="language-select">${languageOptionsHtml}</select>
     </div>
     <div class="settings-row">
-      <label for="detail-select">Detail level</label>
+      <label for="provider-select" data-i18n="provider">Provider</label>
+      <select id="provider-select">${providerOptionsHtml}</select>
+    </div>
+    <div class="settings-row">
+      <label for="detail-select" data-i18n="detailLevel">Detail level</label>
       <select id="detail-select">${detailOptionsHtml}</select>
     </div>
     <div class="settings-row">
-      <label>Best practices</label>
+      <label data-i18n="bestPractices">Best practices</label>
       <div class="bp-group">
         ${bestPracticesHtml}
       </div>
     </div>
     <div class="settings-row">
-      <label for="count-input">Number of suggestions (1-8)</label>
+      <label for="count-input" data-i18n="suggestionCount">Number of suggestions (1-8)</label>
       <input type="number" id="count-input" min="1" max="8" step="1">
     </div>
     <div class="settings-row inline">
       <input type="checkbox" id="emoji-toggle">
-      <label for="emoji-toggle">Show emoji prefix (✨ feat: …)</label>
+      <label for="emoji-toggle" data-i18n="showEmoji">Show emoji prefix</label>
     </div>
     <div class="settings-row inline">
       <input type="checkbox" id="body-toggle">
-      <label for="body-toggle">Include explanation body</label>
+      <label for="body-toggle" data-i18n="showBody">Include explanation body</label>
     </div>
   </div>
   <div id="banner"></div>
@@ -566,6 +567,28 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   // Per-language translations for the Detail level dropdown.
   const DETAIL_TRANSLATIONS = ${JSON.stringify(DETAIL_TRANSLATIONS_TABLE)};
   const DETAIL_IDS_CLIENT = ${JSON.stringify(DETAIL_IDS)};
+  // UI string translations covering labels, buttons, banner text. Missing
+  // languages fall back to English. Key format matches data-i18n attrs on
+  // labels/buttons + best-practice ids prefixed with "bp_".
+  const UI_TRANSLATIONS = ${JSON.stringify(UI_STRINGS)};
+  function uiStr(key, language) {
+    return (UI_TRANSLATIONS[language] && UI_TRANSLATIONS[language][key])
+      || UI_TRANSLATIONS.en[key]
+      || key;
+  }
+  function applyI18n(language) {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const key = el.getAttribute("data-i18n");
+      el.textContent = uiStr(key, language);
+    });
+    // Best-practice checkbox labels live in <label for="bp-<id>">; sync them
+    // from bp_<id> entries.
+    document.querySelectorAll("input[data-bp]").forEach((cb) => {
+      const id = cb.getAttribute("data-bp");
+      const lbl = document.querySelector('label[for="bp-' + id + '"]');
+      if (lbl) lbl.textContent = uiStr("bp_" + id, language);
+    });
+  }
 
   function rebuildDetailOptions(language) {
     const table = DETAIL_TRANSLATIONS[language] || DETAIL_TRANSLATIONS._default;
@@ -621,17 +644,22 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     const provider = state.settings.providerId;
     const remoteIcon = ${JSON.stringify(REMOTE_SVG)};
     const pencilIcon = ${JSON.stringify(PENCIL_SVG)};
+    const lang = state.settings.language;
+    const titleText = uiStr("apiKeyRequired", lang);
+    const bodyTpl = uiStr("apiKeyBody", lang)
+      .replace("{provider}", "</b>" + escapeHtml(provider) + "<b>")
+      .replace("{icon}", '</b><span class="inline-icon">' + pencilIcon + "</span><b>");
+    const getKeyLabel = uiStr("getFreeKey", lang);
+    const pasteLabel = uiStr("pasteKey", lang);
     bannerEl.innerHTML =
       '<div class="banner">'
-      + '<div class="banner-title"><span class="banner-icon">' + remoteIcon + "</span> API key required</div>"
-      + "The <b>" + escapeHtml(provider) + "</b> provider needs an API key. "
-      + "Paste yours below, or switch to a no-key provider from the "
-      + '<span class="inline-icon">' + pencilIcon + "</span> menu."
+      + '<div class="banner-title"><span class="banner-icon">' + remoteIcon + "</span> " + escapeHtml(titleText) + "</div>"
+      + "<b></b>" + bodyTpl + "<b></b>"
       + '<div class="banner-actions">'
       + (provider === "mistral"
-          ? '<button class="secondary" id="open-console">Get free key</button>'
+          ? '<button class="secondary" id="open-console">' + escapeHtml(getKeyLabel) + "</button>"
           : "")
-      + '<button id="paste-key">Paste my key</button>'
+      + '<button id="paste-key">' + escapeHtml(pasteLabel) + "</button>"
       + "</div></div>";
     if (provider === "mistral") {
       $("open-console").addEventListener("click", () =>
@@ -664,9 +692,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     const body = bodyParts.length
       ? '<div class="body">' + bodyParts.join("\\n\\n") + "</div>"
       : "";
+    const useLabel = escapeHtml(uiStr("useThisBtn", language));
     return '<div class="card">'
       + headerLine + subjectVi + body
-      + '<div class="actions"><button data-idx="' + idx + '" class="use-btn">Use this</button></div>'
+      + '<div class="actions"><button data-idx="' + idx + '" class="use-btn">' + useLabel + "</button></div>"
       + "</div>";
   }
 
@@ -674,10 +703,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   function syncSettings(settings) {
     if (providerSelect.value !== settings.providerId) providerSelect.value = settings.providerId;
     if (languageSelect.value !== settings.language) languageSelect.value = settings.language;
-    // Rebuild Detail level option labels whenever the output language
-    // changes, so the dropdown stays in the user's language.
+    // Rebuild Detail level options + retranslate every UI label whenever
+    // the output language changes, so the entire panel switches language.
     if (lastDetailLang !== settings.language) {
       rebuildDetailOptions(settings.language);
+      applyI18n(settings.language);
       lastDetailLang = settings.language;
     }
     if (detailSelect.value !== settings.detailLevel) detailSelect.value = settings.detailLevel;
@@ -696,12 +726,16 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   }
 
   function render(state) {
-    providerEl.textContent = state.providerLabel ? "Provider: " + state.providerLabel : "";
+    const lang = state.settings.language;
+    providerEl.textContent = state.providerLabel
+      ? uiStr("providerLabel", lang) + " " + state.providerLabel
+      : "";
     suggestBtn.disabled = state.status === "loading";
     syncSettings(state.settings);
     renderBanner(state);
     if (state.status === "loading") {
-      contentEl.innerHTML = '<div class="loading"><span class="spinner"></span>Generating suggestions…</div>';
+      const msg = escapeHtml(uiStr("generating", state.settings.language));
+      contentEl.innerHTML = '<div class="loading"><span class="spinner"></span>' + msg + "</div>";
       return;
     }
     if (state.status === "error") {
@@ -709,7 +743,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       return;
     }
     if (state.status === "idle" || state.suggestions.length === 0) {
-      contentEl.innerHTML = '<div class="empty">Stage some files, then click <b>Suggest</b>.</div>';
+      const lang = state.settings.language;
+      const hint = escapeHtml(uiStr("stageHint", lang));
+      const btn = escapeHtml(uiStr("suggestBtn", lang));
+      contentEl.innerHTML = '<div class="empty">' + hint + ' <b>' + btn + "</b>.</div>";
       return;
     }
     contentEl.innerHTML = state.suggestions

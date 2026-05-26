@@ -27,7 +27,11 @@ export class PollinationsProvider extends Provider {
       // requested array of suggestions into one bare object, breaking the
       // parser. Without the constraint the model emits a clean array; if it
       // occasionally returns a single object the parser wraps it for us.
-      max_tokens: 4000,
+      // Reasoning models eat ~2-3k tokens of internal thought before any
+      // visible output, then need ~1k more for the JSON array of suggestions.
+      // 8000 leaves headroom even when the user asks for 8 detailed
+      // bilingual suggestions.
+      max_tokens: 8000,
       // gpt-oss-20b is a reasoning model — at default effort it burns most
       // of its token budget on internal reasoning and emits an empty
       // `content` field. Force minimum effort so tokens go to output.

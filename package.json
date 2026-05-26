@@ -84,9 +84,9 @@
         },
         "gitCommitSuggestion.language": {
           "type": "string",
-          "enum": ["bilingual", "en", "vi", "zh", "zh-tw", "ja", "ko", "es", "fr", "de", "pt", "ru", "id", "th", "ar", "hi", "it", "tr", "pl", "nl", "uk", "sv"],
-          "default": "bilingual",
-          "description": "Output language for suggestions. 'bilingual' shows English subject + Vietnamese gloss side-by-side; other values produce a single-language commit message."
+          "enum": ["en", "vi", "zh", "zh-tw", "ja", "ko", "es", "fr", "de", "pt", "ru", "id", "th", "ar", "hi", "it", "tr", "pl", "nl", "uk", "sv"],
+          "default": "en",
+          "description": "Output language for suggestions. Each language is single-language; pick one and the entire panel + commit messages use it."
         },
         "gitCommitSuggestion.detailLevel": {
           "type": "string",
