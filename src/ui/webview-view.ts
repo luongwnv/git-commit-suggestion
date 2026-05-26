@@ -307,11 +307,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
     border: none;
-    padding: 4px 10px;
+    padding: 0 12px;
     border-radius: 2px;
     cursor: pointer;
     font-family: inherit;
     font-size: inherit;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
   }
   button:hover { background: var(--vscode-button-hoverBackground); }
   button:disabled { opacity: 0.55; cursor: default; }
@@ -324,9 +327,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     background: transparent;
     color: var(--vscode-icon-foreground, var(--vscode-foreground));
     border: none;
-    padding: 4px 6px;
+    padding: 0;
     cursor: pointer;
     border-radius: 2px;
+    height: 32px;
+    width: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
