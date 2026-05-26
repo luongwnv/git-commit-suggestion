@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>git-commit-suggestion — knowledge base</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 880px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { margin-top: 2em; color: #06c; }
+  h3 { margin-top: 1.4em; }
+  code, pre { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
+  pre { padding: .6em; overflow-x: auto; }
+  .warn { background: #fff3cd; border-left: 4px solid #f0ad4e; padding: .5em .8em; }
+  .danger { background: #f8d7da; border-left: 4px solid #d9534f; padding: .5em .8em; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: .4em .6em; text-align: left; }
+  th { background: #f7f7f7; }
+</style>
+</head>
+<body>
+<h1>git-commit-suggestion — Knowledge Base</h1>
+<p>Non-obvious facts about providers, the pipeline, and VSCode integration. Append new gotchas here as you discover them; do not delete entries unless the underlying behavior changed.</p>
+
+<h2 id="providers">Provider quirks</h2>
+
+<h3 id="mistral">Mistral free tier</h3>
+<ul>
+  <li>Free tier rate limit is approximately <strong>1 request/second</strong> per key. A second click within ~1s of the first will return HTTP 429.</li>
+  <li>Models on the free tier: <code>mistral-small-latest</code> (default), <code>open-mistral-7b</code>, <code>open-mixtral-8x7b</code>. Premier models (large-latest etc.) require a paid plan.</li>
+  <li>Use the OpenAI-compatible <code>/v1/chat/completions</code> schema with <code>Authorization: Bearer &lt;key&gt;</code>. <code>response_format: { type: "json_object" }</code> works.</li>
+  <li>Free tier opt-in checkbox at <a href="https://console.mistral.ai/">console.mistral.ai</a> &rarr; <em>Billing</em>. Without it, the API returns 401 with a misleading message.</li>
+</ul>
+
+<h3 id="anthropic">Anthropic — different schema</h3>
+<ul>
+  <li>Endpoint is <code>/v1/messages</code>, <strong>not</strong> <code>/chat/completions</code>. The OpenAI-compatible class does not work here.</li>
+  <li>System prompt goes in a top-level <code>system</code> field, not in the <code>messages</code> array.</li>
+  <li>Auth header is <code>x-api-key: &lt;key&gt;</code> plus <code>anthropic-version: 2023-06-01</code>.</li>
+  <li>Response shape: <code>{ content: [{ type: "text", text: "..." }] }</code>. Filter for <code>type === "text"</code> before reading <code>text</code>.</li>
+  <li><code>max_tokens</code> is required. The extension uses 1500 — enough for 4-5 commit suggestions in JSON.</li>
+</ul>
+
+<h3 id="ollama">Ollama (local)</h3>
+<ul>
+  <li>Endpoint is <code>/api/chat</code>. <code>stream: false</code> is required, otherwise the response is a sequence of NDJSON objects rather than one JSON body.</li>
+  <li><code>format: "json"</code> nudges the local model into emitting valid JSON. Without it, small models (7B–8B) frequently fail JSON parsing.</li>
+  <li>Default base URL is <code>http://localhost:11434</code>. Override with <code>gitCommitSuggestion.ollamaBaseUrl</code> (e.g. remote box on LAN).</li>
+  <li>First call after Ollama startup can take 5–20 seconds while the model loads into RAM/VRAM. The progress notification stays open the whole time — this is expected.</li>
+</ul>
+
+<h3 id="groq">Groq</h3>
+<ul>
+  <li>OpenAI-compatible. Base URL is <code>https://api.groq.com/openai/v1</code>.</li>
+  <li>Free tier rate limits are much more generous than Mistral's (60 req/min on most models).</li>
+  <li><code>llama-3.1-8b-instant</code> is fast and good enough for commit messages; <code>llama-3.3-70b-versatile</code> is better but slower.</li>
+</ul>
+
+<h3 id="g4f">g4f — unofficial reverse proxy</h3>
+<div class="danger">
+<strong>Risk acknowledged by the user.</strong> g4f-style endpoints scrape or proxy upstream provider sessions. Using them violates the upstream provider's Terms of Service, has no SLA, and historically some forks have shipped credential-stealing payloads. The extension gates this provider behind <code>gitCommitSuggestion.enableUnofficialProviders</code> and shows a modal warning before first use.
+</div>
+<ul>
+  <li>Endpoints rotate frequently. <code>src/providers/g4f.ts</code> ships a small list of community endpoints; if all fail, the orchestrator falls back to Mistral (so you still need a Mistral key configured for fallback to work).</li>
+  <li>Quality is typically GPT-3.5 level. For Conventional Commits this is usually fine; for longer body text it can hallucinate.</li>
+  <li>If you want to maintain your own endpoint list, fork <code>FALLBACK_ENDPOINTS</code> in <code>src/providers/g4f.ts</code>. Don't put endpoints in <code>config/providers.yml</code> if they require auth — that file is committed.</li>
+</ul>
+
+<h2 id="pipeline">Pipeline quirks</h2>
+
+<h3>Diff truncation</h3>
+<ul>
+  <li>Token counting is a crude <code>chars / 4</code> heuristic. The real tokenizer the provider uses will differ — pad your <code>maxDiffTokens</code> by 20% if you hit context-overflow errors.</li>
+  <li>Truncation order: sort files <strong>ascending by size</strong>, keep whole, until budget runs out. Then head-truncate the next file with a marker line. This biases toward "show many files at the cost of one large file" rather than "show one huge file at the cost of everything else".</li>
+  <li>Binary file diffs (<code>Binary files differ</code>) take negligible tokens and are always kept whole.</li>
+</ul>
+
+<h3>JSON parsing</h3>
+<ul>
+  <li>LLMs ignore "no markdown fences" instructions ~10% of the time even with <code>response_format: json_object</code>. The parser strips <code>```json</code> / <code>```</code> wrappers as the first step.</li>
+  <li>Some providers return <code>{ "suggestions": [...] }</code> instead of a bare array. The parser handles both shapes.</li>
+  <li>If the LLM returns a non-Conventional-Commit type (e.g. <code>"feature"</code>, <code>"bugfix"</code>), the parser falls back to <code>chore</code> rather than failing. This is intentional — partial output is better than nothing.</li>
+  <li>Scope is normalized: trimmed, lowercased, spaces &rarr; hyphens. Mirrors common Conventional Commits style.</li>
+</ul>
+
+<h3>SCM input box</h3>
+<ul>
+  <li>The Git extension exposes <code>repository.inputBox.value</code>. Setting it triggers the SCM view to update — no manual refresh needed.</li>
+  <li>If multiple git repositories are open in the workspace, <code>api.getRepository(uri)</code> picks the one whose root contains the workspace folder. We fall back to <code>repositories[0]</code> if no match.</li>
+  <li>Embedded newlines in the input box render fine. No need to escape <code>\n</code>.</li>
+</ul>
+
+<h2 id="vscode">VSCode integration quirks</h2>
+
+<h3>Secrets vs settings</h3>
+<ul>
+  <li>API keys MUST go through <code>context.secrets</code> (encrypted, per-machine, never synced). Never via <code>workspace.getConfiguration().update()</code> — that writes to <code>settings.json</code>, which gets committed to dotfile repos.</li>
+  <li>The secret key format is <code>gitCommitSuggestion.apiKey.&lt;provider&gt;</code> (see <code>SECRET_KEY</code> in <code>extension.ts</code>). Don't change this without a migration step, or existing users will lose their keys silently.</li>
+</ul>
+
+<h3>Activation events</h3>
+<ul>
+  <li><code>onStartupFinished</code> is used so the status-bar lightbulb appears for every workspace. Activating on a command only would mean the button doesn't show until first invocation.</li>
+  <li>Cold activation is ~50ms; safe to do at startup.</li>
+</ul>
+
+<h2 id="layout">Repo layout principle</h2>
+<p>Layout mirrors <code>index-crawl</code>:</p>
+<ul>
+  <li><code>config/*.yml</code> is the source of truth for anything declarative (endpoints, models, commit types, prompts). Code reads YAML at activation; do not hardcode.</li>
+  <li><code>src/models/</code> holds zod schemas; everything that crosses a boundary (LLM &rarr; us, settings &rarr; us, YAML &rarr; us) is validated.</li>
+  <li><code>src/providers/</code> is the "sources" layer (one class per backend). The orchestrator never sees provider-specific HTTP details.</li>
+  <li><code>src/pipeline/</code> is the orchestration layer — pure functions where possible.</li>
+  <li><code>docs/*.html</code> instead of <code>*.md</code> on purpose: matches <code>index-crawl</code>'s convention so AI agents reading both repos have the same expectation.</li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,114 @@
+{
+  "name": "git-commit-suggestion",
+  "displayName": "Git Commit Suggestion",
+  "description": "LLM-powered Conventional Commits suggestions from the staged diff. Bilingual EN+VI. Mistral free tier by default; BYOK for OpenAI/Anthropic/Groq; local Ollama; optional unofficial reverse-proxy provider.",
+  "version": "0.1.0",
+  "publisher": "lit",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["SCM Providers", "Other"],
+  "keywords": ["git", "commit", "conventional-commits", "llm", "mistral", "vietnamese"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitCommitSuggestion.suggest",
+        "title": "Suggest Commit Message",
+        "category": "Git Commit Suggestion",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "gitCommitSuggestion.setApiKey",
+        "title": "Set API Key for Provider",
+        "category": "Git Commit Suggestion"
+      },
+      {
+        "command": "gitCommitSuggestion.clearApiKey",
+        "title": "Clear API Key for Provider",
+        "category": "Git Commit Suggestion"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "gitCommitSuggestion.suggest",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Git Commit Suggestion",
+      "properties": {
+        "gitCommitSuggestion.provider": {
+          "type": "string",
+          "enum": ["mistral", "openai", "anthropic", "groq", "ollama", "g4f"],
+          "default": "mistral",
+          "description": "Which LLM provider to use. Mistral has an official free tier and is the default. g4f is an unofficial reverse proxy and requires enableUnofficialProviders=true."
+        },
+        "gitCommitSuggestion.model": {
+          "type": "string",
+          "default": "",
+          "description": "Override the default model for the chosen provider. Leave empty to use the provider's default (see config/providers.yml)."
+        },
+        "gitCommitSuggestion.language": {
+          "type": "string",
+          "enum": ["bilingual", "en", "vi"],
+          "default": "bilingual",
+          "description": "Output language for suggestions. 'bilingual' shows English subject + Vietnamese gloss side-by-side."
+        },
+        "gitCommitSuggestion.suggestionCount": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "How many suggestions to request from the LLM."
+        },
+        "gitCommitSuggestion.maxDiffTokens": {
+          "type": "number",
+          "default": 6000,
+          "description": "Maximum approximate tokens of diff content to send. Larger diffs are truncated file-by-file."
+        },
+        "gitCommitSuggestion.enableUnofficialProviders": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow unofficial reverse-proxy providers (g4f). These violate upstream ToS, have no SLA, and may stop working without notice."
+        },
+        "gitCommitSuggestion.customPromptPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a custom prompts.yml overriding config/prompts.yml."
+        },
+        "gitCommitSuggestion.ollamaBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama server base URL (only used when provider=ollama)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "test": "tsc -p . && node ./out/test/runTest.js",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.4.1",
+    "mocha": "^10.7.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,57 @@
+# Conventional Commits type catalogue. Mirrors RedJue/git-commit-plugin's list
+# with EN + VI descriptions. The LLM is told it must pick a `type` from this set.
+
+- type: feat
+  emoji: "✨"
+  en: A new feature
+  vi: Một tính năng mới
+
+- type: fix
+  emoji: "🐛"
+  en: A bug fix
+  vi: Sửa lỗi
+
+- type: docs
+  emoji: "📝"
+  en: Documentation only changes
+  vi: Chỉ thay đổi tài liệu
+
+- type: style
+  emoji: "💄"
+  en: Code style changes (whitespace, formatting) that do not affect meaning
+  vi: Thay đổi style (khoảng trắng, format) không ảnh hưởng logic
+
+- type: refactor
+  emoji: "♻️"
+  en: A code change that neither fixes a bug nor adds a feature
+  vi: Thay đổi code không sửa lỗi và không thêm tính năng
+
+- type: perf
+  emoji: "⚡"
+  en: A code change that improves performance
+  vi: Cải thiện hiệu năng
+
+- type: test
+  emoji: "✅"
+  en: Adding or correcting tests
+  vi: Thêm hoặc sửa test
+
+- type: build
+  emoji: "📦"
+  en: Changes affecting the build system or external dependencies
+  vi: Thay đổi build system hoặc dependencies
+
+- type: ci
+  emoji: "👷"
+  en: Changes to CI configuration files and scripts
+  vi: Thay đổi cấu hình CI
+
+- type: chore
+  emoji: "🔧"
+  en: Other changes that do not modify src or test files
+  vi: Việc lặt vặt không thay đổi src hay test
+
+- type: revert
+  emoji: "⏪"
+  en: Reverts a previous commit
+  vi: Hoàn tác commit trước đó

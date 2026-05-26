@@ -1,0 +1,75 @@
+# Per-provider endpoint + default model + capability flags.
+# The extension loads this at activation; users do not edit it normally.
+# To swap a default model, change here and reload the window.
+
+mistral:
+  label: Mistral AI
+  free_tier: true
+  byok: true            # accepts a user key for the paid tier as well
+  base_url: https://api.mistral.ai/v1
+  endpoint: /chat/completions
+  default_model: mistral-small-latest
+  auth: bearer
+  notes: |
+    Free tier requires registering at console.mistral.ai for an API key.
+    Rate limit ~1 req/sec on the free tier; the orchestrator backs off on 429.
+
+openai:
+  label: OpenAI
+  free_tier: false
+  byok: true
+  base_url: https://api.openai.com/v1
+  endpoint: /chat/completions
+  default_model: gpt-4o-mini
+  auth: bearer
+  notes: |
+    BYOK only. No official free API tier.
+
+anthropic:
+  label: Anthropic Claude
+  free_tier: false
+  byok: true
+  base_url: https://api.anthropic.com/v1
+  endpoint: /messages
+  default_model: claude-haiku-4-5-20251001
+  auth: x-api-key
+  api_version: "2023-06-01"
+  notes: |
+    BYOK only. Uses /messages schema, not /chat/completions.
+
+groq:
+  label: Groq
+  free_tier: true
+  byok: true
+  base_url: https://api.groq.com/openai/v1
+  endpoint: /chat/completions
+  default_model: llama-3.1-8b-instant
+  auth: bearer
+  notes: |
+    Free tier with generous rate limits. OpenAI-compatible schema.
+
+ollama:
+  label: Ollama (local)
+  free_tier: true
+  byok: false
+  base_url: http://localhost:11434
+  endpoint: /api/chat
+  default_model: llama3.1:8b
+  auth: none
+  notes: |
+    Runs locally. base_url is overridable via gitCommitSuggestion.ollamaBaseUrl.
+    Streaming responses are disabled by the client; we accumulate the whole body.
+
+g4f:
+  label: g4f (unofficial reverse proxy)
+  free_tier: true
+  byok: false
+  base_url: ""           # set at runtime from a community-maintained list
+  endpoint: /chat/completions
+  default_model: gpt-3.5-turbo
+  auth: none
+  unofficial: true
+  notes: |
+    Opt-in only. Disabled unless gitCommitSuggestion.enableUnofficialProviders=true.
+    Endpoints rotate; if the configured one fails, the provider falls back to Mistral.
+    Violates upstream ToS — do not use for production.

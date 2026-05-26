@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>git-commit-suggestion — provider comparison</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 1000px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ddd; padding: .5em .7em; vertical-align: top; }
+  th { background: #f7f7f7; }
+  code { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
+  .yes { color: #2c7a2c; font-weight: 600; }
+  .no  { color: #a02020; font-weight: 600; }
+  .warn { color: #b07000; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Provider Comparison</h1>
+<p>Authoritative state of each provider class in <code>src/providers/</code>. Keep this in sync with <code>config/providers.yml</code>.</p>
+
+<table>
+<thead>
+<tr>
+  <th>id</th>
+  <th>Class</th>
+  <th>Schema</th>
+  <th>Default model</th>
+  <th>Free?</th>
+  <th>BYOK?</th>
+  <th>Auth</th>
+  <th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>mistral</code></td>
+  <td><code>OpenAICompatibleProvider</code></td>
+  <td>OpenAI <code>/chat/completions</code></td>
+  <td><code>mistral-small-latest</code></td>
+  <td class="yes">Yes</td>
+  <td class="yes">Yes</td>
+  <td>Bearer</td>
+  <td>Free tier ~1 req/s. Default provider.</td>
+</tr>
+<tr>
+  <td><code>openai</code></td>
+  <td><code>OpenAICompatibleProvider</code></td>
+  <td>OpenAI <code>/chat/completions</code></td>
+  <td><code>gpt-4o-mini</code></td>
+  <td class="no">No</td>
+  <td class="yes">Yes</td>
+  <td>Bearer</td>
+  <td>BYOK only; no official free API tier.</td>
+</tr>
+<tr>
+  <td><code>anthropic</code></td>
+  <td><code>AnthropicProvider</code></td>
+  <td>Anthropic <code>/messages</code></td>
+  <td><code>claude-haiku-4-5-20251001</code></td>
+  <td class="no">No</td>
+  <td class="yes">Yes</td>
+  <td>x-api-key</td>
+  <td>Different schema; system field is top-level; max_tokens required.</td>
+</tr>
+<tr>
+  <td><code>groq</code></td>
+  <td><code>OpenAICompatibleProvider</code></td>
+  <td>OpenAI <code>/chat/completions</code></td>
+  <td><code>llama-3.1-8b-instant</code></td>
+  <td class="yes">Yes</td>
+  <td class="yes">Yes</td>
+  <td>Bearer</td>
+  <td>Free tier with 60 req/min on most models.</td>
+</tr>
+<tr>
+  <td><code>ollama</code></td>
+  <td><code>OllamaProvider</code></td>
+  <td>Ollama <code>/api/chat</code></td>
+  <td><code>llama3.1:8b</code></td>
+  <td class="yes">Yes</td>
+  <td class="no">No</td>
+  <td>None</td>
+  <td>Local; base URL overridable; stream=false; format=json.</td>
+</tr>
+<tr>
+  <td><code>g4f</code></td>
+  <td><code>G4FProvider</code></td>
+  <td>OpenAI <code>/chat/completions</code></td>
+  <td><code>gpt-3.5-turbo</code></td>
+  <td class="warn">Unofficial</td>
+  <td class="no">No</td>
+  <td>None</td>
+  <td>Opt-in (<code>enableUnofficialProviders</code>); rotates endpoints; falls back to Mistral.</td>
+</tr>
+</tbody>
+</table>
+
+<h2>When to use what</h2>
+<ul>
+  <li><strong>You just want it to work, free, with a key:</strong> Mistral. Default.</li>
+  <li><strong>You want speed and free:</strong> Groq with <code>llama-3.1-8b-instant</code>.</li>
+  <li><strong>You want offline / privacy:</strong> Ollama with a local model. Slower first call.</li>
+  <li><strong>You have a paid OpenAI/Anthropic key already:</strong> use that — best quality.</li>
+  <li><strong>You explicitly accept the risks of unofficial reverse proxies:</strong> g4f, but Mistral fallback should still be configured.</li>
+</ul>
+
+</body>
+</html>
