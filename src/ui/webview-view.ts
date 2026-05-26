@@ -53,8 +53,8 @@ interface ViewState {
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "pollinations", label: "Bloom" },
-  { id: "duckduckgo", label: "Quack" },
-  { id: "huggingface", label: "Hugs" },
+  { id: "duckduckgo", label: "Quack (broken)" },
+  { id: "huggingface", label: "Hugs (BYOK)" },
   { id: "mistral", label: "Mistral" },
   { id: "openai", label: "OpenAI" },
   { id: "anthropic", label: "Anthropic" },
@@ -119,14 +119,18 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   showBody: true,
 };
 
-// Pencil/edit icon (settings panel toggle = "edit configuration").
-// Inlined from assets/setting-edit-svgrepo-com.svg so the webview's strict
-// CSP (no external assets) is happy. fill="currentColor" themes
-// automatically with the VSCode foreground color. The viewBox content sits
-// roughly in the 11-27 range of the 0-40 frame, leaving big margins; we
-// crop with a tighter viewBox and bump the rendered size so the pencil
-// fills the toolbar button cleanly.
-const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="10 11 18 18" fill="currentColor" aria-hidden="true"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
+// Settings icon — remote-controller motif (assets/settings.svg). Drawn as a
+// rounded-rect body with a stroke, and the dial / slides / buttons rendered
+// in currentColor on TOP of the body. Body uses fill-rule:nonzero with the
+// SVG's first big path acting as a "case", and inner shapes are drawn over
+// it at full opacity — so they read clearly in both light and dark themes
+// instead of fading away with opacity tricks. The outer case itself is
+// outlined (stroke=currentColor, fill=none) so we don't get a black slab.
+const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="4"/><line x1="40" y1="2" x2="40" y2="62"/><circle cx="20" cy="40" r="12" fill="currentColor" stroke="none"/><circle cx="20" cy="40" r="7" fill="none" stroke-width="2"/><circle cx="20" cy="40" r="2.5" fill="currentColor" stroke="none"/><rect x="46" y="40" width="14" height="4" rx="2" fill="currentColor" stroke="none"/><rect x="46" y="50" width="14" height="4" rx="2" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="2" fill="currentColor" stroke="none"/><circle cx="28" cy="14" r="3.5" fill="none" stroke-width="2.5"/></svg>`;
+
+// "API key" badge icon — inlined from assets/remote.svg. Same flatten-to-
+// currentColor + opacity treatment. Used in the BYOK banner.
+const KEY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><path d="M62.886,12.297L51.741,1.154c-1.539-1.539-4.034-1.539-5.573,0L1.154,46.16c-1.539,1.539-1.539,4.033,0,5.571l11.145,11.144c1.539,1.538,4.034,1.538,5.572,0l45.015-45.006C64.425,16.33,64.425,13.836,62.886,12.297z" opacity="0.35"/><circle cx="44.063" cy="20.035" r="8.006"/><circle cx="44.063" cy="20.035" r="4.003" opacity="0.35"/><circle cx="31.05" cy="27.041" r="3.002"/><circle cx="37.056" cy="33.046" r="3.003"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -513,9 +517,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     }[c]));
   }
 
-  // Providers that require an API key. Auto/Pollinations/DuckDuckGo/HF/Ollama/g4f
-  // work without one. Mirrors the BYOK column in docs/provider-comparison.html.
-  const KEY_REQUIRED = ["mistral", "openai", "anthropic", "groq"];
+  // Providers that require an API key. HuggingFace router became BYOK-only
+  // in 2026 (anonymous returns 401), so it joined this list. Mirrors the
+  // BYOK column in docs/provider-comparison.html.
+  const KEY_REQUIRED = ["mistral", "openai", "anthropic", "groq", "huggingface"];
 
   function renderBanner(state) {
     const needsKey = KEY_REQUIRED.indexOf(state.settings.providerId) >= 0;
@@ -526,9 +531,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     const provider = state.settings.providerId;
     bannerEl.innerHTML =
       '<div class="banner">'
-      + '<div class="banner-title">🔑 API key required</div>'
+      + '<div class="banner-title">' + KEY_ICON_SVG + ' API key required</div>'
       + "The <b>" + escapeHtml(provider) + "</b> provider needs an API key. "
-      + "Paste yours below, or switch to a no-key provider from the ⚙️ menu."
+      + "Paste yours below, or pick a no-key provider from the settings menu."
       + '<div class="banner-actions">'
       + (provider === "mistral"
           ? '<button class="secondary" id="open-console">Get free key</button>'

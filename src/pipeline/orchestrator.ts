@@ -25,9 +25,18 @@ export interface OrchestratorResult {
 
 // Order matters: cheapest/most-reliable first. Each is tried in turn until
 // one returns parseable suggestions. All legs are zero-config (no API key
-// required) — providers that need a key (mistral, openai, anthropic, groq)
-// must be selected explicitly by the user after pasting their key.
-const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations", "duckduckgo", "huggingface"];
+// required) — providers that need a key (mistral, openai, anthropic, groq,
+// and now huggingface) must be selected explicitly by the user after
+// pasting their key.
+//
+// As of May 2026 only Pollinations remains anonymous-accessible:
+//   - DuckDuckGo introduced a JS challenge handshake (x-vqd-hash-1) we
+//     can't replicate without a headless browser.
+//   - HuggingFace router now returns 401 without a bearer token.
+// Keeping the chain in this form means we don't try-and-fail loudly through
+// providers we know are broken; the orchestrator surfaces a single clean
+// error if Pollinations is also down.
+const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations"];
 
 function loadProviders(extensionRoot: string): ProvidersConfig {
   const p = resolveConfigPath(extensionRoot, "providers.yml");

@@ -66,12 +66,13 @@ pollinations:
   byok: false
   base_url: https://text.pollinations.ai
   endpoint: /openai
-  default_model: openai-large
+  default_model: openai-fast
   auth: none
   unofficial: true
   notes: |
     Free community-sponsored gateway, no signup. ~1 req per 3-5s per IP.
-    Quality is GPT-4o-class on default model. Can disappear without notice.
+    Anonymous tier (May 2026) only has openai-fast (GPT-OSS 20B on OVH).
+    openai-large was retired; using it returns HTTP 404.
 
 duckduckgo:
   label: DuckDuckGo AI Chat (free, no key)

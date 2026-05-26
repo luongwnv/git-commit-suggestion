@@ -2,18 +2,22 @@ import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base"
 
 // Pollinations.ai is a free community-sponsored gateway that speaks the
 // OpenAI Chat Completions schema. No key, no signup. Quality depends on the
-// model selected — default is openai-large which is GPT-4o-class.
+// model — anonymous tier (May 2026) only has `openai-fast` (a.k.a. openai,
+// gpt-oss, gpt-oss-20b). The older `openai-large` model is deprecated and
+// returns HTTP 404 with a "migrate to enter.pollinations.ai" notice.
 //
 // Endpoint quirks vs vanilla OpenAI:
 //   - POST https://text.pollinations.ai/openai (NOT /v1/chat/completions)
 //   - No `Authorization` header
-//   - `response_format: { type: "json_object" }` is honored
+//   - `response_format: { type: "json_object" }` is honored on supported models
 //   - Rate limit is roughly 1 req / 3-5s per IP; bursts get throttled silently
+//
+// See https://github.com/pollinations/pollinations/blob/main/APIDOCS.md
 export class PollinationsProvider extends Provider {
   override async generate(args: GenerateArgs): Promise<ProviderResponse> {
     const url = "https://text.pollinations.ai/openai";
     const body = {
-      model: args.model || "openai-large",
+      model: args.model || "openai-fast",
       messages: [
         { role: "system", content: args.systemPrompt },
         { role: "user", content: args.userPrompt },

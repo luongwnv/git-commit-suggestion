@@ -19,6 +19,13 @@ Apply: with rootDir=`.` and multi-dir include, tsc preserves the src/ prefix in 
 Context: VSCode webviews sandbox aggressively. Browser-style `<link>` to local CSS or `require()` inside the inline script silently fails.
 Apply: build the entire UI as one self-contained HTML string with inline `<style>` and one nonce'd `<script>`. For icons that need to be solid+themed, use inline SVG with `fill="currentColor"`.
 
+### Multi-color SVG icons flattened to `currentColor` + opacity render as a black slab in light themes
+Context: tried to make a remote-controller settings icon work in both themes by replacing all source colors with `currentColor` and using `opacity="0.45"` / `"0.25"` to differentiate dial face from body. In dark mode it looked fine (faded white shapes), but in light mode `currentColor` is black and all the opacity-faded regions also became dark — the icon read as a single blackish blob.
+Apply: don't simulate "tones" with opacity on a monochrome icon. Use a stencil/outline approach instead:
+- The outer "case" of the icon: `fill="none" stroke="currentColor"` (a hollow shape; the background shows through).
+- Inner highlights/buttons: `fill="currentColor" stroke="none"` (solid against the hollow case).
+Result: clear contrast in both themes. The same pattern fits any "device with buttons / panel with controls" icon.
+
 ### IDE diagnostics after sequential Edits are stale until the next tick
 Context: did two Edits in the same turn (rename a const, then update its single caller). The post-Edit IDE diagnostics block flagged `Cannot find name 'GEAR_SVG'` on the caller line — even though both Edits succeeded and `tsc -p .` was clean.
 Apply: when IDE diagnostics fire after a multi-Edit sequence, verify with `tsc -p .` (or the language server's command-line equivalent) before chasing the "error". A real type error survives one extra tick.
