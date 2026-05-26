@@ -69,6 +69,13 @@ Apply: before any commit, scan `git status -s` for unexpected `??` entries. If a
 Context: amending HEAD to drop the files would have been faster but risky during a multi-step commit chain. Removing files from the tree + committing the deletions is cleaner — history records the mistake and the cleanup, both honest.
 Apply: only amend if HEAD hasn't been verified yet; otherwise create a follow-up cleanup commit.
 
+### Anonymous public LLM endpoints break often — verify before shipping
+Context: by 2026-05, three "zero-config" providers we relied on had all broken in subtly different ways:
+- Pollinations: legacy model id `openai-large` returned 404; anonymous tier dropped to one model `openai-fast` (gpt-oss-20b). GET `/models` lists what's currently exposed.
+- DuckDuckGo AI Chat: replaced `x-vqd-4` token with a JS challenge token `x-vqd-hash-1` (base64-encoded obfuscated JS that must be executed in a browser-like env). Reverse-engineering this is not feasible from a Node fetch.
+- HuggingFace router (`router.huggingface.co/v1/chat/completions`): now requires `Authorization: Bearer` for every request; anonymous calls return HTML 401.
+Apply: before adding/keeping a public no-key provider, curl the exact endpoint with the exact payload you'll send. Don't trust docs — these endpoints change without notice. Auto-chain should only include providers verified within the last week or two. Mark broken providers as "selectable but not in auto chain" rather than removing them — they sometimes come back.
+
 ## Tooling / shell
 
 ### `npm`/`npx`/`node` not on PATH; nvm shell functions don't survive a non-interactive Bash invocation

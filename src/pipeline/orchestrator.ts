@@ -27,7 +27,17 @@ export interface OrchestratorResult {
 // one returns parseable suggestions. All legs are zero-config (no API key
 // required) — providers that need a key (mistral, openai, anthropic, groq)
 // must be selected explicitly by the user after pasting their key.
-const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations", "duckduckgo", "huggingface"];
+//
+// DuckDuckGo was dropped from auto chain in 2026-05 after they shipped a
+// JS-based anti-bot challenge (response header x-vqd-hash-1 instead of
+// x-vqd-4). Replicating the challenge would require running JS — not worth
+// it for a commit suggestion tool. Still selectable manually as Platypus
+// in case it ever opens back up.
+//
+// HuggingFace router started requiring a Bearer token for /v1/chat/completions
+// in 2026-05 as well. Still selectable manually as Polar Bear; the user
+// supplies their own free token via the API key flow.
+const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations"];
 
 function loadProviders(extensionRoot: string): ProvidersConfig {
   const p = resolveConfigPath(extensionRoot, "providers.yml");

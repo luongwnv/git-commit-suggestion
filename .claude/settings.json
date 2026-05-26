@@ -16,7 +16,19 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:linux.do)",
-      "WebFetch(domain:text.pollinations.ai)"
+      "WebFetch(domain:text.pollinations.ai)",
+      "Bash(curl -sS -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-large\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in JSON: {\\\\\"hi\\\\\": true}\"}],\"response_format\":{\"type\":\"json_object\"}}' -m 30)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-large\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}' -m 30)",
+      "Bash(curl -sS -X GET https://duckduckgo.com/duckchat/v1/status -H 'x-vqd-accept: 1' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/123.0 Safari/537.36' -D - -o /dev/null -m 30)",
+      "Bash(curl -sS -X POST https://router.huggingface.co/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":10}' -m 30)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -X POST https://router.huggingface.co/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}' -m 30)",
+      "Bash(curl -sS \"https://text.pollinations.ai/models\" -m 15)",
+      "Bash(curl -sS -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-fast\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with valid JSON: {\\\\\"ok\\\\\": true}\"}],\"response_format\":{\"type\":\"json_object\"}}' -m 30)",
+      "Bash(curl -sS -X POST https://duckduckgo.com/duckchat/v1/chat -H 'Content-Type: application/json' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/123.0 Safari/537.36' -H 'Accept: text/event-stream' -d '{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}' -D - -o /dev/null -m 15)",
+      "Bash(curl -sS -X POST https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply JSON: {\\\\\"ok\\\\\":true}\"}],\"max_tokens\":50}' -m 30)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -X POST https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct/v1/chat/completions -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}' -m 30)",
+      "Bash(curl -sS -X POST https://router.huggingface.co/v1/chat/completions -H 'Content-Type: application/json' -H 'Authorization: Bearer hf_dummy' -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":10}' -m 30)",
+      "Bash(curl -sS -o /dev/null -w '%{http_code} %{url_effective}\\\\n' https://router.huggingface.co/v1/models -m 15)"
     ]
   }
 }
