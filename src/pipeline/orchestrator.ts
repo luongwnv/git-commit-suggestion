@@ -122,6 +122,7 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
     count: config.suggestionCount,
     language: config.language,
     detailLevel: config.detailLevel,
+    bestPractices: config.bestPractices,
     diff: renderDiff(diff),
     commitTypes,
   });

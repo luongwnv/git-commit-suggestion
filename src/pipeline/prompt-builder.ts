@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
 import {
+  BestPracticeId,
   CommitType,
   CommitTypeSchema,
   DetailLevel,
@@ -15,8 +16,26 @@ export interface PromptInputs {
   count: number;
   language: Language;
   detailLevel: DetailLevel;
+  bestPractices: BestPracticeId[];
   diff: string;
   commitTypes: CommitType[];
+}
+
+// One line of prompt guidance per opt-in rule. The orchestrator renders the
+// active subset into the user prompt as a bulleted block.
+const BEST_PRACTICE_PROMPT: Record<BestPracticeId, string> = {
+  imperative: "Use imperative mood for subjects (\"Add login\", not \"Added login\").",
+  subject50: "Keep subject line to 50 characters or fewer.",
+  capitalize: "Capitalize the first letter of the subject after the type/scope prefix.",
+  noPeriod: "Do not end the subject with a period.",
+  bodyWrap72: "Wrap body lines at 72 characters; insert line breaks as needed.",
+  explainWhy: "Body must explain WHAT changed and WHY — never describe HOW (the diff already shows how).",
+  referenceIssues: "If you can plausibly infer a related issue or PR from the diff or file path, reference it in a footer line like \"Refs: #123\". Otherwise omit the footer.",
+};
+
+export function renderBestPractices(ids: BestPracticeId[]): string {
+  if (ids.length === 0) return "(no extra style rules applied)";
+  return ids.map((id) => `- ${BEST_PRACTICE_PROMPT[id]}`).join("\n");
 }
 
 const DETAIL_GUIDANCE: Record<DetailLevel, string> = {
@@ -48,6 +67,7 @@ export function buildPrompt(prompts: PromptsConfig, inputs: PromptInputs): Built
     language_label: LANGUAGE_LABELS[inputs.language],
     detail_level: inputs.detailLevel,
     detail_guidance: DETAIL_GUIDANCE[inputs.detailLevel],
+    best_practices: renderBestPractices(inputs.bestPractices),
     diff: inputs.diff,
     types_block: renderTypesBlock(inputs.commitTypes),
   };

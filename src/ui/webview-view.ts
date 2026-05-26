@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import {
+  BEST_PRACTICE_LABELS,
+  BestPracticeId,
   DETAIL_LEVEL_LABELS,
   DETAIL_LEVEL_TRANSLATIONS,
   DetailLevel,
@@ -24,6 +26,7 @@ type FromWebview =
   | { type: "set-provider"; providerId: string }
   | { type: "set-language"; language: Language }
   | { type: "set-detail-level"; detailLevel: DetailLevel }
+  | { type: "set-best-practice"; id: BestPracticeId; value: boolean }
   | { type: "set-suggestion-count"; count: number }
   | { type: "set-show-emoji"; value: boolean }
   | { type: "set-show-body"; value: boolean };
@@ -36,6 +39,7 @@ export interface DisplaySettings {
   providerId: string;
   language: Language;
   detailLevel: DetailLevel;
+  bestPractices: BestPracticeId[];
   suggestionCount: number;
   showEmoji: boolean;
   showBody: boolean;
@@ -103,6 +107,7 @@ export interface ViewCallbacks {
   onSetProvider: (providerId: string) => Promise<void>;
   onSetLanguage: (language: Language) => Promise<void>;
   onSetDetailLevel: (detailLevel: DetailLevel) => Promise<void>;
+  onSetBestPractice: (id: BestPracticeId, value: boolean) => Promise<void>;
   onSetSuggestionCount: (count: number) => Promise<void>;
   onSetShowEmoji: (value: boolean) => Promise<void>;
   onSetShowBody: (value: boolean) => Promise<void>;
@@ -113,10 +118,13 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   providerId: "auto",
   language: "bilingual",
   detailLevel: "normal",
+  bestPractices: ["imperative", "subject50", "capitalize", "noPeriod", "explainWhy"],
   suggestionCount: 4,
   showEmoji: true,
   showBody: true,
 };
+
+const BEST_PRACTICE_IDS = Object.keys(BEST_PRACTICE_LABELS) as BestPracticeId[];
 
 // Settings icon for the header. The earlier form/list icon (settings-svgrepo)
 // felt heavy in the small header bar; switched back to the pencil-edit icon
@@ -274,6 +282,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       case "set-detail-level":
         await this.cb.onSetDetailLevel(msg.detailLevel);
         break;
+      case "set-best-practice":
+        await this.cb.onSetBestPractice(msg.id, msg.value);
+        break;
       case "set-suggestion-count":
         await this.cb.onSetSuggestionCount(msg.count);
         break;
@@ -305,6 +316,13 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     // injected DETAIL_TRANSLATIONS table.
     const detailOptionsHtml = DETAIL_IDS.map(
       (id) => `<option value="${id}">${escapeServerSide(DETAIL_LEVEL_LABELS[id])}</option>`,
+    ).join("");
+    // Best-practice checkboxes are rendered once with the English labels;
+    // the `checked` state is synced per-instance from settings.bestPractices.
+    const bestPracticesHtml = BEST_PRACTICE_IDS.map(
+      (id) =>
+        `<div class="settings-row inline"><input type="checkbox" id="bp-${id}" data-bp="${id}">`
+        + `<label for="bp-${id}">${escapeServerSide(BEST_PRACTICE_LABELS[id])}</label></div>`,
     ).join("");
 
     return `<!DOCTYPE html>
@@ -402,13 +420,24 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     font-family: inherit;
     font-size: inherit;
     border-radius: 2px;
+    /* Pin the dropdown to the sidebar width — long option labels (e.g.
+       "Bahasa Indonesia (Indonesian)") otherwise force the <select> to expand
+       beyond the VSCode container and clip behind the editor. */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
+  /* Same for the settings card itself: never overflow horizontally. */
+  .settings, body { box-sizing: border-box; max-width: 100%; }
+  body { overflow-x: hidden; }
   .settings-row.inline {
     flex-direction: row;
     align-items: center;
     gap: 6px;
   }
   .settings-row.inline label { color: var(--vscode-foreground); font-size: 1em; }
+  .bp-group { display: flex; flex-direction: column; gap: 4px; }
+  .bp-group .settings-row.inline { margin-bottom: 0; }
   .card {
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -493,6 +522,12 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       <select id="detail-select">${detailOptionsHtml}</select>
     </div>
     <div class="settings-row">
+      <label>Best practices</label>
+      <div class="bp-group">
+        ${bestPracticesHtml}
+      </div>
+    </div>
+    <div class="settings-row">
       <label for="count-input">Number of suggestions (1-8)</label>
       <input type="number" id="count-input" min="1" max="8" step="1">
     </div>
@@ -554,6 +589,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     vscode.postMessage({ type: "set-show-emoji", value: e.target.checked }));
   bodyToggle.addEventListener("change", (e) =>
     vscode.postMessage({ type: "set-show-body", value: e.target.checked }));
+
+  // Best-practice checkboxes. Each emits set-best-practice with its id.
+  document.querySelectorAll('input[data-bp]').forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      const id = e.target.getAttribute("data-bp");
+      vscode.postMessage({ type: "set-best-practice", id, value: e.target.checked });
+    });
+  });
 
   function escapeHtml(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -639,6 +682,13 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     }
     if (emojiToggle.checked !== settings.showEmoji) emojiToggle.checked = settings.showEmoji;
     if (bodyToggle.checked !== settings.showBody) bodyToggle.checked = settings.showBody;
+    // Sync best-practice checkboxes from the active list.
+    const active = new Set(settings.bestPractices || []);
+    document.querySelectorAll('input[data-bp]').forEach((cb) => {
+      const id = cb.getAttribute("data-bp");
+      const want = active.has(id);
+      if (cb.checked !== want) cb.checked = want;
+    });
   }
 
   function render(state) {

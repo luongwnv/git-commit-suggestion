@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import {
+  BestPracticeId,
   DetailLevel,
   ExtensionConfig,
   ExtensionConfigSchema,
@@ -25,6 +26,7 @@ function readConfig(): ExtensionConfig {
     model: c.get("model", ""),
     language: c.get("language"),
     detailLevel: c.get("detailLevel"),
+    bestPractices: c.get("bestPractices"),
     suggestionCount: c.get("suggestionCount"),
     maxDiffTokens: c.get("maxDiffTokens"),
     enableUnofficialProviders: c.get("enableUnofficialProviders"),
@@ -40,6 +42,7 @@ function settingsFromConfig(config: ExtensionConfig): DisplaySettings {
     providerId: config.provider,
     language: config.language,
     detailLevel: config.detailLevel,
+    bestPractices: config.bestPractices,
     suggestionCount: config.suggestionCount,
     showEmoji: config.showEmoji,
     showBody: config.showBody,
@@ -220,6 +223,14 @@ export function activate(context: vscode.ExtensionContext): void {
       },
       onSetDetailLevel: async (detailLevel: DetailLevel) => {
         await updateGlobal("detailLevel", detailLevel);
+        await refresh();
+      },
+      onSetBestPractice: async (id: BestPracticeId, value: boolean) => {
+        const current = readConfig().bestPractices;
+        const next = value
+          ? Array.from(new Set([...current, id]))
+          : current.filter((x) => x !== id);
+        await updateGlobal("bestPractices", next);
         await refresh();
       },
       onSetSuggestionCount: async (count) => {

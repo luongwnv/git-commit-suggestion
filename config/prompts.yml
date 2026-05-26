@@ -47,6 +47,9 @@ user: |
   Detail level: {{detail_level}}
   {{detail_guidance}}
 
+  Style rules (must follow all):
+  {{best_practices}}
+
   Staged diff:
   ```diff
   {{diff}}

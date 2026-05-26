@@ -70,6 +70,38 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 export const DetailLevelSchema = z.enum(["concise", "normal", "detailed"]);
 export type DetailLevel = z.infer<typeof DetailLevelSchema>;
 
+// Best-practice rules the user can opt into individually. Each maps to a
+// line of prompt guidance (see prompt-builder.ts). Order here is the order
+// they appear in the settings panel.
+export const BestPracticeIdSchema = z.enum([
+  "imperative",         // "Add" not "Added"
+  "subject50",          // subject ≤ 50 chars
+  "capitalize",         // capitalize subject
+  "noPeriod",           // no trailing period in subject
+  "bodyWrap72",         // body wraps at 72 chars
+  "explainWhy",         // body explains what + why, not how
+  "referenceIssues",    // reference issues/PRs in footer
+]);
+export type BestPracticeId = z.infer<typeof BestPracticeIdSchema>;
+
+export const BEST_PRACTICE_LABELS: Record<BestPracticeId, string> = {
+  imperative: "Imperative mood (Add, not Added)",
+  subject50: "Subject ≤ 50 characters",
+  capitalize: "Capitalize subject line",
+  noPeriod: "No period at end of subject",
+  bodyWrap72: "Body wraps at 72 characters",
+  explainWhy: "Body explains what & why (not how)",
+  referenceIssues: "Reference issues/PRs in footer",
+};
+
+export const BEST_PRACTICE_DEFAULTS: BestPracticeId[] = [
+  "imperative",
+  "subject50",
+  "capitalize",
+  "noPeriod",
+  "explainWhy",
+];
+
 // English fallback labels for the detail level dropdown. The UI translates
 // these per the user's output language setting via DETAIL_LEVEL_TRANSLATIONS
 // below; if a language has no translation we fall back to English.
@@ -200,6 +232,7 @@ export const ExtensionConfigSchema = z.object({
   model: z.string(),
   language: LanguageSchema,
   detailLevel: DetailLevelSchema,
+  bestPractices: z.array(BestPracticeIdSchema),
   suggestionCount: z.number().int().min(1).max(8),
   maxDiffTokens: z.number().int().min(500),
   enableUnofficialProviders: z.boolean(),

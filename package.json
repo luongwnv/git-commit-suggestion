@@ -94,6 +94,15 @@
           "default": "normal",
           "description": "How verbose the generated commit messages should be: concise (subject only), normal (subject + brief body), detailed (subject + multi-paragraph explanation)."
         },
+        "gitCommitSuggestion.bestPractices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["imperative", "subject50", "capitalize", "noPeriod", "bodyWrap72", "explainWhy", "referenceIssues"]
+          },
+          "default": ["imperative", "subject50", "capitalize", "noPeriod", "explainWhy"],
+          "description": "Best-practice rules the LLM must follow. Each rule maps to a line of prompt guidance."
+        },
         "gitCommitSuggestion.suggestionCount": {
           "type": "number",
           "default": 4,
