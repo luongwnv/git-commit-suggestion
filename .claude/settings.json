@@ -6,7 +6,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git add *)",
       "Bash(node ./out/test/runTest.js)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(git commit *)"
     ]
   }
 }

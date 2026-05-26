@@ -99,10 +99,14 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   showBody: true,
 };
 
-// Pencil/edit icon (settings = "edit configuration"). Inlined from
-// assets/setting-edit-svgrepo-com.svg. Fill uses currentColor so the icon
-// themes automatically with the VSCode foreground color.
-const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
+// Pencil/edit icon (settings panel toggle = "edit configuration").
+// Inlined from assets/setting-edit-svgrepo-com.svg so the webview's strict
+// CSP (no external assets) is happy. fill="currentColor" themes
+// automatically with the VSCode foreground color. The viewBox content sits
+// roughly in the 11-27 range of the 0-40 frame, leaving big margins; we
+// crop with a tighter viewBox and bump the rendered size so the pencil
+// fills the toolbar button cleanly.
+const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="10 11 18 18" fill="currentColor" aria-hidden="true"><path d="M25.1,18.6c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.1-0.1-0.1-0.2-0.1-0.4s0.1-0.3,0.1-0.4l1.3-1.3c0.8-0.8,2.1-0.8,2.8,0l1.1,1.1c0.8,0.8,0.8,2.1,0,2.8l-1.3,1.3C25.4,18.6,25.2,18.6,25.1,18.6z M22.6,14.9l2.5,2.5l1-1c0.4-0.4,0.4-1,0-1.4L25,13.9c-0.4-0.4-1-0.4-1.4,0L22.6,14.9z"/><path d="M12.5,28c-0.1,0-0.3-0.1-0.4-0.1C12,27.7,12,27.6,12,27.4l0.6-3.8c0-0.1,0.1-0.2,0.1-0.3l8.8-8.8c0.2-0.2,0.5-0.2,0.7,0l3.2,3.2c0.1,0.1,0.1,0.2,0.1,0.4s-0.1,0.3-0.1,0.4l-8.8,8.8c-0.1,0.1-0.2,0.1-0.3,0.1L12.5,28C12.6,28,12.5,28,12.5,28z M13.6,23.9l-0.5,3l3-0.5l8.3-8.3l-2.5-2.5L13.6,23.9z"/><path d="M17.2,26.5c-0.1,0-0.3,0-0.4-0.1l-3.2-3.2c-0.2-0.2-0.2-0.5,0-0.7s0.5-0.2,0.7,0l3.2,3.2c0.2,0.2,0.2,0.5,0,0.7C17.5,26.4,17.4,26.5,17.2,26.5z"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -417,7 +421,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 <body>
   <div class="header">
     <span class="provider" id="provider"></span>
-    <button class="icon-btn" id="settings-btn" title="Settings">${GEAR_SVG}</button>
+    <button class="icon-btn" id="settings-btn" title="Settings">${SETTINGS_ICON_SVG}</button>
     <button id="suggest-btn">Suggest</button>
   </div>
   <div class="settings hidden" id="settings">

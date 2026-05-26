@@ -19,6 +19,10 @@ Apply: with rootDir=`.` and multi-dir include, tsc preserves the src/ prefix in 
 Context: VSCode webviews sandbox aggressively. Browser-style `<link>` to local CSS or `require()` inside the inline script silently fails.
 Apply: build the entire UI as one self-contained HTML string with inline `<style>` and one nonce'd `<script>`. For icons that need to be solid+themed, use inline SVG with `fill="currentColor"`.
 
+### IDE diagnostics after sequential Edits are stale until the next tick
+Context: did two Edits in the same turn (rename a const, then update its single caller). The post-Edit IDE diagnostics block flagged `Cannot find name 'GEAR_SVG'` on the caller line — even though both Edits succeeded and `tsc -p .` was clean.
+Apply: when IDE diagnostics fire after a multi-Edit sequence, verify with `tsc -p .` (or the language server's command-line equivalent) before chasing the "error". A real type error survives one extra tick.
+
 ### `vscode.SecretStorage.get` returns `Thenable`, not `Promise`
 Context: passing `secrets.get(...)` as a `Promise<string | undefined>` callback errors `TS2739: missing catch, finally, [Symbol.toStringTag]`.
 Apply: type the callback signature as `PromiseLike<string | undefined>` or wrap the call.
