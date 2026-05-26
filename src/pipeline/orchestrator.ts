@@ -84,6 +84,45 @@ interface AttemptResult {
   label: string;
 }
 
+// Hard ceiling on a single provider call. Pollinations' reasoning model
+// normally returns in 15-25s for our workload; when the endpoint accepts
+// the connection then never sends a response, fetch hangs forever and the
+// webview spinner has no exit. 30s is tight enough that a hang feels like
+// a fast failure (user sees the error banner and can retry / switch
+// provider) without cutting off a real slow-but-working call.
+const PROVIDER_TIMEOUT_MS = 30_000;
+
+// Build a child AbortController that fires when EITHER:
+//   - the parent (user Stop) aborts, or
+//   - the timeout elapses.
+// Returns the child controller, plus a `timedOut` flag the caller can read
+// after a thrown AbortError to distinguish "user pressed Stop" from "we
+// gave up waiting". Cleanup is in `dispose` — always call it in finally.
+function withTimeout(
+  parent: AbortSignal | undefined,
+  ms: number,
+): { signal: AbortSignal; timedOut: () => boolean; dispose: () => void } {
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const onParentAbort = (): void => ctrl.abort();
+  if (parent) {
+    if (parent.aborted) ctrl.abort();
+    else parent.addEventListener("abort", onParentAbort, { once: true });
+  }
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, ms);
+  return {
+    signal: ctrl.signal,
+    timedOut: () => timedOut,
+    dispose: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener("abort", onParentAbort);
+    },
+  };
+}
+
 async function attempt(args: AttemptArgs): Promise<AttemptResult> {
   const provider = buildProvider(args.id, args.providersConfig, {
     ollamaBaseUrl: args.ollamaBaseUrl,
@@ -94,15 +133,32 @@ async function attempt(args: AttemptArgs): Promise<AttemptResult> {
   args.log(
     `Calling provider: ${args.id} (model: ${provider.resolveModel(args.modelOverride)}) using ${keySource}`,
   );
-  const suggestions = await callProvider(
-    provider,
-    args.systemPrompt,
-    args.userPrompt,
-    key,
-    args.modelOverride,
-    args.signal,
-  );
-  return { suggestions, label: `${args.id} (${keySource})` };
+  const t = withTimeout(args.signal, PROVIDER_TIMEOUT_MS);
+  try {
+    const suggestions = await callProvider(
+      provider,
+      args.systemPrompt,
+      args.userPrompt,
+      key,
+      args.modelOverride,
+      t.signal,
+    );
+    return { suggestions, label: `${args.id} (${keySource})` };
+  } catch (err) {
+    // Timeout fires AbortError on the child signal. Convert it to a normal
+    // provider failure so the auto chain can move on AND the user sees a
+    // useful banner instead of an empty cancel. User-initiated aborts (the
+    // parent signal) are still AbortError — orchestrator re-throws those.
+    if ((err as Error).name === "AbortError" && t.timedOut()) {
+      throw new ProviderError(
+        args.id,
+        `Timed out after ${Math.round(PROVIDER_TIMEOUT_MS / 1000)}s`,
+      );
+    }
+    throw err;
+  } finally {
+    t.dispose();
+  }
 }
 
 export async function suggestCommits(deps: OrchestratorDeps): Promise<OrchestratorResult> {

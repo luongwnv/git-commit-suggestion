@@ -3,19 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>git-commit-suggestion — lessons</title>
-<style>
-  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 880px; margin: 2em auto; padding: 0 1em; color: #222; }
-  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
-  h2 { margin-top: 2em; color: #06c; }
-  h3 { margin-top: 1.4em; }
-  code, pre { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
-  pre { padding: .6em; overflow-x: auto; }
-  .warn { background: #fff3cd; border-left: 4px solid #f0ad4e; padding: .5em .8em; }
-  .danger { background: #f8d7da; border-left: 4px solid #d9534f; padding: .5em .8em; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #ddd; padding: .4em .6em; text-align: left; }
-  th { background: #f7f7f7; }
-</style>
+<link rel="stylesheet" href="../docs/style.css">
 </head>
 <body>
 <h1>Lessons</h1>
@@ -92,6 +80,10 @@
 <h3>Ollama 404 = model not installed; probe <code>/api/tags</code> for what IS available</h3>
 <p><strong>Context:</strong> Hardcoding <code>default_model: llama3.1:8b</code> breaks every install that doesn't have that specific tag. Ollama returns <code>{"error":"model 'X' not found"}</code> with HTTP 404.</p>
 <p><strong>Apply:</strong> On 404 with "not found" in body, GET <code>/api/tags</code>, list installed models, and surface that list plus the <code>ollama pull &lt;model&gt;</code> command. Don't pick one automatically — the user has reasons for what they have.</p>
+
+<h3>Node <code>fetch()</code> has no default timeout — provider hang = stuck spinner</h3>
+<p><strong>Context:</strong> user reported "loading hoài" (loading forever) after the 0.1.1 stuck-spinner fix. The 0.1.1 fix handled stale-config schema errors, but a separate path can still strand the webview: Pollinations sometimes accepts the TCP connection and never responds. <code>await fetch(...)</code> + <code>await resp.text()</code> never resolves, the <code>try/catch</code> in <code>runSuggest</code> never fires, the spinner spins forever. Distinct from the "long but real" 15–40s reasoning-model call.</p>
+<p><strong>Apply:</strong> wrap every provider call in a per-attempt <code>AbortController</code> tied to a <code>setTimeout</code> (we use 30s — Pollinations' reasoning model normally returns in 15–25s, so 30s is a tight ceiling that turns a hang into a fast failure). The child controller must also listen to the parent user-Stop signal so cancellation still works. On AbortError, check a <code>timedOut</code> flag: if timer fired, throw a <code>ProviderError("Timed out after Ns")</code> so the user sees an error banner; if the parent aborted, re-throw <code>AbortError</code> so the orchestrator short-circuits the chain (cancellation is not a provider failure). Always <code>clearTimeout</code> + remove the parent listener in <code>finally</code> or you leak both per call. <strong>Don't go too long</strong> — 90s of waiting for the timeout to fire is itself the bug; bias toward "fail fast, retry cheap".</p>
 
 <h3>Anonymous public LLM endpoints break often — verify before shipping</h3>
 <p><strong>Context:</strong> by 2026-05, three "zero-config" providers we relied on had all broken in subtly different ways:</p>

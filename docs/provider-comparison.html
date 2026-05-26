@@ -3,17 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>git-commit-suggestion — provider comparison</title>
-<style>
-  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 1000px; margin: 2em auto; padding: 0 1em; color: #222; }
-  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
-  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-  th, td { border: 1px solid #ddd; padding: .5em .7em; vertical-align: top; }
-  th { background: #f7f7f7; }
-  code { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
-  .yes { color: #2c7a2c; font-weight: 600; }
-  .no  { color: #a02020; font-weight: 600; }
-  .warn { color: #b07000; font-weight: 600; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>Provider Comparison</h1>
@@ -38,8 +28,8 @@
   <td>(virtual)</td>
   <td>chain</td>
   <td>—</td>
-  <td class="yes">Yes</td>
-  <td class="no">No</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-no">No</td>
   <td>—</td>
   <td><strong>Default.</strong> Walks pollinations → duckduckgo → huggingface → mistral and returns the first success.</td>
 </tr>
@@ -48,8 +38,8 @@
   <td><code>PollinationsProvider</code></td>
   <td>OpenAI-like <code>/openai</code></td>
   <td><code>openai-large</code></td>
-  <td class="yes">Yes</td>
-  <td class="no">No</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-no">No</td>
   <td>None</td>
   <td>Zero-config free gateway. GPT-4o-class. Throttles at ~1 req/3-5s per IP.</td>
 </tr>
@@ -58,8 +48,8 @@
   <td><code>DuckDuckGoProvider</code></td>
   <td>Reverse-engineered SSE</td>
   <td><code>gpt-4o-mini</code></td>
-  <td class="yes">Yes</td>
-  <td class="no">No</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-no">No</td>
   <td>vqd token (auto)</td>
   <td>Two-step handshake. Models: gpt-4o-mini, claude-haiku, llama-3.3-70b, mistral-small, o3-mini.</td>
 </tr>
@@ -68,8 +58,8 @@
   <td><code>HuggingFaceProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
   <td><code>Qwen/Qwen2.5-7B-Instruct</code></td>
-  <td class="yes">Yes</td>
-  <td class="yes">Optional</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-yes">Optional</td>
   <td>Bearer (optional)</td>
   <td>Free without key (rate-limited per IP); HF token bumps quota and unlocks gated models.</td>
 </tr>
@@ -78,8 +68,8 @@
   <td><code>OpenAICompatibleProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
   <td><code>mistral-small-latest</code></td>
-  <td class="yes">Yes</td>
-  <td class="yes">Yes</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-yes">Yes</td>
   <td>Bearer</td>
   <td>Free tier ~1 req/s. BYOK only — get a free key at console.mistral.ai/api-keys.</td>
 </tr>
@@ -88,8 +78,8 @@
   <td><code>OpenAICompatibleProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
   <td><code>gpt-4o-mini</code></td>
-  <td class="no">No</td>
-  <td class="yes">Yes</td>
+  <td class="status-no">No</td>
+  <td class="status-yes">Yes</td>
   <td>Bearer</td>
   <td>BYOK only; no official free API tier.</td>
 </tr>
@@ -98,8 +88,8 @@
   <td><code>AnthropicProvider</code></td>
   <td>Anthropic <code>/messages</code></td>
   <td><code>claude-haiku-4-5-20251001</code></td>
-  <td class="no">No</td>
-  <td class="yes">Yes</td>
+  <td class="status-no">No</td>
+  <td class="status-yes">Yes</td>
   <td>x-api-key</td>
   <td>Different schema; system field is top-level; max_tokens required.</td>
 </tr>
@@ -108,8 +98,8 @@
   <td><code>OpenAICompatibleProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
   <td><code>llama-3.1-8b-instant</code></td>
-  <td class="yes">Yes</td>
-  <td class="yes">Yes</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-yes">Yes</td>
   <td>Bearer</td>
   <td>Free tier with 60 req/min on most models.</td>
 </tr>
@@ -118,8 +108,8 @@
   <td><code>OllamaProvider</code></td>
   <td>Ollama <code>/api/chat</code></td>
   <td><code>llama3.1:8b</code></td>
-  <td class="yes">Yes</td>
-  <td class="no">No</td>
+  <td class="status-yes">Yes</td>
+  <td class="status-no">No</td>
   <td>None</td>
   <td>Local; base URL overridable; stream=false; format=json.</td>
 </tr>
@@ -128,8 +118,8 @@
   <td><code>G4FProvider</code></td>
   <td>OpenAI <code>/chat/completions</code></td>
   <td><code>gpt-3.5-turbo</code></td>
-  <td class="warn">Unofficial</td>
-  <td class="no">No</td>
+  <td class="status-warn">Unofficial</td>
+  <td class="status-no">No</td>
   <td>None</td>
   <td>Opt-in (<code>enableUnofficialProviders</code>); rotates endpoints; falls back to Mistral.</td>
 </tr>

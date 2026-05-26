@@ -3,19 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>git-commit-suggestion — knowledge base</title>
-<style>
-  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 880px; margin: 2em auto; padding: 0 1em; color: #222; }
-  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
-  h2 { margin-top: 2em; color: #06c; }
-  h3 { margin-top: 1.4em; }
-  code, pre { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
-  pre { padding: .6em; overflow-x: auto; }
-  .warn { background: #fff3cd; border-left: 4px solid #f0ad4e; padding: .5em .8em; }
-  .danger { background: #f8d7da; border-left: 4px solid #d9534f; padding: .5em .8em; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #ddd; padding: .4em .6em; text-align: left; }
-  th { background: #f7f7f7; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>git-commit-suggestion — Knowledge Base</h1>
@@ -115,6 +103,16 @@
   <li>Endpoints rotate frequently. <code>src/providers/g4f.ts</code> ships a small list of community endpoints; if all fail, the orchestrator falls back to Mistral (so you still need a Mistral key configured for fallback to work).</li>
   <li>Quality is typically GPT-3.5 level. For Conventional Commits this is usually fine; for longer body text it can hallucinate.</li>
   <li>If you want to maintain your own endpoint list, fork <code>FALLBACK_ENDPOINTS</code> in <code>src/providers/g4f.ts</code>. Don't put endpoints in <code>config/providers.yml</code> if they require auth — that file is committed.</li>
+</ul>
+
+<h3>Provider fetches need a hard timeout — Node's fetch has none</h3>
+<div class="danger">
+Node's <code>fetch()</code> never times out on its own. If an upstream LB accepts the TCP connection then never sends a response (Pollinations does this occasionally when rate-limited; Cloudflare-fronted providers do it during incidents), <code>await resp.text()</code> hangs forever. The webview shows a spinning loader with no exit condition — exactly the bug 0.1.1 was supposed to kill, just via a different path. Always wrap provider calls in an <code>AbortController</code> tied to a <code>setTimeout</code>; the timeout-fired abort must be distinguishable from a user-initiated Stop so the chain can surface "Timed out after Ns" instead of treating it as a silent cancel.
+</div>
+<ul>
+  <li>Implementation lives in <code>withTimeout()</code> in <code>src/pipeline/orchestrator.ts</code>. It creates a child controller that aborts on either parent-signal abort OR a timer; <code>timedOut()</code> lets the catch branch convert a child-AbortError into a <code>ProviderError("Timed out after Ns")</code> while still re-throwing user aborts as AbortError so they short-circuit the chain (cancellation isn't a failure).</li>
+  <li>Always pair the timer with a <code>dispose()</code> in <code>finally</code>. Forgetting to clear the timer leaks the handle and (with a parent signal) leaks an <code>abort</code> listener per call.</li>
+  <li>Default ceiling is 30s. Pollinations' reasoning model normally finishes 15–25s for the commit-message workload; 30s is tight enough that a true hang feels like a fast failure (user sees the error banner and can retry / switch provider) without cutting off a real slow-but-working call. Earlier we tried 90s, but waiting that long for the spinner to time out is itself a UX bug — better to bias toward "fail fast, retry cheap".</li>
 </ul>
 
 <h3>HTTP error bodies — never inline raw response text</h3>
