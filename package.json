@@ -49,8 +49,17 @@
         }
       ]
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitCommitSuggestion",
+          "title": "Commit Suggestion",
+          "icon": "$(lightbulb)"
+        }
+      ]
+    },
     "views": {
-      "scm": [
+      "gitCommitSuggestion": [
         {
           "type": "webview",
           "id": "gitCommitSuggestion.view",
