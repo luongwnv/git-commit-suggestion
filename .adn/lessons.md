@@ -93,3 +93,7 @@ Apply: before adding/keeping a public no-key provider, curl the exact endpoint w
 ### `npm`/`npx`/`node` not on PATH; nvm shell functions don't survive a non-interactive Bash invocation
 Context: on this machine, the user's zsh defines `node`/`npm`/`npx` as lazy-loaded nvm functions. A non-interactive Bash invocation prints `command not found: _load_nvm`.
 Apply: prepend `export PATH="$HOME/.nvm/versions/node/v22.22.1/bin:$PATH" && ` to every shell call that needs node. The `_load_nvm: command not found` line in stderr is harmless noise.
+
+### `preLaunchTask 'npm: compile' terminated with exit code 127` in launch.json
+Context: VSCode's `type: "npm"` task resolves `npm` via the user's default shell PATH. With nvm, that resolves to a shell function which a non-login non-interactive shell can't expand → exit 127. Symptoms: F5 debug fails before the Extension Development Host even opens.
+Apply: rewrite the task as `type: "shell"` calling `./node_modules/.bin/tsc` directly, and inject PATH via `options.env.PATH = "${env:HOME}/.nvm/versions/node/v22.22.1/bin:/usr/local/bin:/usr/bin:/bin"`. The local tsc binary still needs `node` on PATH because its shebang is `#!/usr/bin/env node`, so the PATH override is non-optional.
