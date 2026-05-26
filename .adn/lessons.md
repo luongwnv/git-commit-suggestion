@@ -57,6 +57,10 @@ Apply: even with `response_format: json_object`, ~10% of responses come wrapped.
 Context: user dropped 6 SVG files into the project root (asset stash). Running `git add -A && git commit` silently swept all of them into the commit, polluting history with three unrelated `smartphone-*.svg` files.
 Apply: before any commit, scan `git status -s` for unexpected `??` entries. If a binary/asset file appears that you didn't touch, ask before adding. Prefer staging by explicit paths over `-A` when the working tree has mystery files.
 
+### Files restored from history via `git show HEAD~N:path > dest` may end up in BOTH dest and original location
+Context: ran `git show HEAD~1:setting-edit-svgrepo-com.svg > assets/setting-edit-svgrepo-com.svg` to recover an asset. The destination file was written correctly, but the original path (project root) also gained a copy — likely an IDE/auto-restore reaction to the historical path becoming "active" again.
+Apply: after `git show HEAD~N:path > dest`, immediately verify `git status -s` shows ONLY the new file. If a copy reappears at the original deleted path, `rm` it and re-stage before committing. Or use `git checkout HEAD~N -- path` and then `mv` to be explicit.
+
 ### When an unwanted file lands in HEAD, prefer `git restore --staged` over amend-rewriting
 Context: amending HEAD to drop the files would have been faster but risky during a multi-step commit chain. Removing files from the tree + committing the deletions is cleaner — history records the mistake and the cleanup, both honest.
 Apply: only amend if HEAD hasn't been verified yet; otherwise create a follow-up cleanup commit.
