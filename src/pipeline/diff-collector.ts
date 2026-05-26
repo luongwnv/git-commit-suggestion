@@ -1,5 +1,5 @@
 import { FileDiff, ParsedDiff } from "../models/diff";
-import { runGit } from "../utils/git";
+import { findRepoRoot, runGit } from "../utils/git";
 
 // Rough heuristic: 1 token ≈ 4 chars for English/code. Used only for budgeting
 // before the LLM call — providers do their own real tokenization.
@@ -19,7 +19,15 @@ function splitByFile(raw: string): FileDiff[] {
 }
 
 export async function collectStagedDiff(cwd: string, maxTokens: number): Promise<ParsedDiff> {
-  const raw = await runGit(cwd, ["diff", "--staged", "--no-color", "-U3"]);
+  const repoRoot = await findRepoRoot(cwd);
+  if (!repoRoot) {
+    throw new Error(
+      `Not inside a git repository (looked from ${cwd} up). Run "git init" in this folder, or open a git repo as the workspace.`,
+    );
+  }
+  // --cached is the long-standing alias; --staged was added in Git 2.18 (2018)
+  // but some bundled-with-OS gits and CI sandboxes still ship older versions.
+  const raw = await runGit(repoRoot, ["diff", "--cached", "--no-color", "-U3"]);
   const all = splitByFile(raw);
   const total = all.reduce((acc, f) => acc + f.approxTokens, 0);
   if (total <= maxTokens) {

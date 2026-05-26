@@ -67,6 +67,13 @@
 
 <h2 id="pipeline">Pipeline quirks</h2>
 
+<h3>Locating the git repo root</h3>
+<ul>
+  <li>The workspace folder is NOT necessarily the git repo root — users routinely open a subfolder. Running <code>git diff --cached</code> from a non-repo cwd falls through to <code>git diff --no-index</code> mode, which then complains about unknown options (including <code>--cached</code>/<code>--staged</code>!) and prints a misleading "usage: git diff --no-index" block. This is the symptom users will report; the cause is "no repo at the cwd we passed", not a git-version issue.</li>
+  <li>We walk up from <code>workspaceFolders[0]</code> looking for a <code>.git</code> entry (directory <em>or</em> file — submodules and worktrees use a <code>.git</code> file). See <code>findRepoRoot</code> in <code>src/utils/git.ts</code>. We deliberately do NOT use <code>git rev-parse --show-toplevel</code> because it raises the same misleading no-index error when the cwd isn't a repo — we want a clean "not a git repo" message instead.</li>
+  <li>Use <code>--cached</code> not <code>--staged</code> in <code>git diff</code>. <code>--staged</code> was added in Git 2.18 (2018); <code>--cached</code> has worked since 1.6 (2008). The two are aliases. There's no upside to requiring the newer spelling.</li>
+</ul>
+
 <h3>Diff truncation</h3>
 <ul>
   <li>Token counting is a crude <code>chars / 4</code> heuristic. The real tokenizer the provider uses will differ — pad your <code>maxDiffTokens</code> by 20% if you hit context-overflow errors.</li>
