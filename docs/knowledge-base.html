@@ -166,6 +166,15 @@
   <li>Cold activation is ~50ms; safe to do at startup.</li>
 </ul>
 
+<h3>Do NOT put `when` on a view contribution</h3>
+<div class="danger">
+The view in <code>views.scm</code> must NOT have a <code>"when"</code> clause. Context keys like <code>scmProvider == git</code> apply to <strong>menu</strong> contributions only (<code>menus.scm/title</code>, <code>menus.view/title</code>). On view contributions, an unmatched <code>when</code> silently hides the entire view — symptom: "Commit Suggestions doesn't appear in my SCM sidebar". Earlier in this project the view was hidden by exactly this mistake for several commits.
+</div>
+<ul>
+  <li>If you want the view conditional on something, control it from the extension side by calling <code>vscode.commands.executeCommand("setContext", "myKey", value)</code> from <code>activate()</code> and referencing <code>"when": "myKey"</code> — but that needs the custom key, not built-in SCM context keys.</li>
+  <li>The view always activates inside the SCM container. If the user's workspace isn't a git repo, the SCM container itself won't show anyway — no extra gating needed.</li>
+</ul>
+
 <h3>Webview view (sidebar GUI)</h3>
 <ul>
   <li>Registered as a <code>WebviewView</code> under the <code>scm</code> container (see <code>"views.scm"</code> in <code>package.json</code>). This puts it inside the existing Source Control sidebar — same view that already hosts the Changes list and the commit input box. No separate Activity Bar icon is added.</li>

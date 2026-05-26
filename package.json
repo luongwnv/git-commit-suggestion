@@ -55,8 +55,7 @@
           "type": "webview",
           "id": "gitCommitSuggestion.view",
           "name": "Commit Suggestions",
-          "icon": "$(lightbulb)",
-          "when": "scmProvider == git"
+          "icon": "$(lightbulb)"
         }
       ]
     },
