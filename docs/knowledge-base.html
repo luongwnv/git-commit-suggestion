@@ -117,6 +117,15 @@
   <li>If you want to maintain your own endpoint list, fork <code>FALLBACK_ENDPOINTS</code> in <code>src/providers/g4f.ts</code>. Don't put endpoints in <code>config/providers.yml</code> if they require auth — that file is committed.</li>
 </ul>
 
+<h3>HTTP error bodies — never inline raw response text</h3>
+<div class="danger">
+Every provider that does <code>throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`)</code> is a footgun. When upstream load balancers (Cloudflare, nginx) return 502/503, the body is a full HTML page with <code>&lt;!DOCTYPE&gt;</code> + meta + inline CSS. The orchestrator aggregates these into "all auto-chain providers failed:\n…" and dumps the wall of HTML into the webview banner. Route every HTTP error body through <code>summarizeErrorBody()</code> in <code>src/providers/base.ts</code> — it preserves the first 400 chars of JSON bodies (where upstream API errors put their useful message) but tag-strips and 120-caps HTML/plain text.
+</div>
+<ul>
+  <li>If you add a new provider, do this from day one. The cost of forgetting is a 50-line HTML blob in the user-facing error popup.</li>
+  <li>The helper detects JSON via leading <code>{</code> or <code>[</code> on the trimmed body — anything else is treated as opaque. Don't try to be cleverer.</li>
+</ul>
+
 <h2 id="pipeline">Pipeline quirks</h2>
 
 <h3>Locating the git repo root</h3>
@@ -162,6 +171,15 @@
   <li>Cold activation is ~50ms; safe to do at startup.</li>
 </ul>
 
+<h3>F5 debug launch: preLaunchTask must not depend on PATH</h3>
+<div class="danger">
+The preLaunchTask <code>npm: compile</code> in <code>.vscode/tasks.json</code> uses <code>type: "process"</code> with absolute paths to <code>node</code> and <code>tsc.js</code>, NOT <code>type: "shell"</code>. Earlier attempts with shell tasks failed intermittently with <code>exit 127</code> ("command not found"), even after adding an env <code>PATH</code> override. Root cause on macOS: the task shell sources <code>/etc/zshenv</code> → <code>path_helper</code> and <code>.zprofile</code>, which can rebuild <code>PATH</code> in unpredictable order. When <code>nvm</code> is lazy-loaded in <code>.zshrc</code> (a common setup), <code>node</code> exists only as a shell function that a non-interactive task shell never triggers, so <code>/usr/bin/env node</code> inside the <code>tsc</code> shebang resolves to nothing. <code>type: "process"</code> bypasses all of that — VS Code <code>exec</code>s the binary directly, no shell startup, no shebang resolution.
+</div>
+<ul>
+  <li>The node version is hardcoded as <code>v22.17.1</code> in the path. If a contributor upgrades node and removes that version, the task breaks; update both <code>compile</code> and <code>watch</code> task paths in <code>.vscode/tasks.json</code>. This is the conscious trade-off for robustness — depending on shell PATH was more fragile.</li>
+  <li>Symptom of regression: F5 pops "<code>preLaunchTask 'npm: compile' terminated with exit code 127</code>" instead of launching the Extension Host. Reproduce manually with <code>"$HOME/.nvm/versions/node/v22.17.1/bin/node" "$PWD/node_modules/typescript/bin/tsc" -p .</code> to confirm the absolute-path invocation works before suspecting anything else.</li>
+</ul>
+
 <h3>Do NOT put `when` on a view contribution</h3>
 <div class="danger">
 The view in <code>views.scm</code> must NOT have a <code>"when"</code> clause. Context keys like <code>scmProvider == git</code> apply to <strong>menu</strong> contributions only (<code>menus.scm/title</code>, <code>menus.view/title</code>). On view contributions, an unmatched <code>when</code> silently hides the entire view — symptom: "Commit Suggestions doesn't appear in my SCM sidebar". Earlier in this project the view was hidden by exactly this mistake for several commits.
@@ -173,12 +191,31 @@ The view in <code>views.scm</code> must NOT have a <code>"when"</code> clause. C
 
 <h3>Webview view (sidebar GUI)</h3>
 <ul>
-  <li>Registered as a <code>WebviewView</code> under the <code>scm</code> container (see <code>"views.scm"</code> in <code>package.json</code>). This puts it inside the existing Source Control sidebar — same view that already hosts the Changes list and the commit input box. No separate Activity Bar icon is added.</li>
+  <li>Registered as a <code>WebviewView</code> inside a dedicated Activity Bar container <code>gitCommitSuggestion</code> (see <code>"viewsContainers.activitybar"</code> and <code>"views.gitCommitSuggestion"</code> in <code>package.json</code>). It is NOT under the SCM sidebar — it lives in its own pane, which is why moving the user between the two requires explicit focus commands (see "Cross-view navigation" below). An earlier revision of the project hosted it under <code>views.scm</code>; this note is kept because the container choice affects every view-focus / lightbulb wiring decision.</li>
   <li>The HTML is rendered inline by <code>CommitSuggestionViewProvider.renderHtml</code> with a strict CSP: <code>default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-...'</code>. No external assets, no <code>require</code>/<code>import</code> inside the webview — VS Code's webview sandbox disallows both.</li>
   <li>Communication is one-way per direction: extension → webview uses <code>view.webview.postMessage({ type: "state", state })</code>; webview → extension uses <code>vscode.postMessage(...)</code> via the <code>acquireVsCodeApi()</code> handle. There is no shared state and no synchronous bridge — every UI update is a full state replacement.</li>
   <li>The webview holds NO suggestions of its own. The extension owns the canonical <code>Suggestion[]</code> in a <code>suggestionsRef</code> closure; on <code>{ type: "use", index }</code> it looks up by index. This avoids round-tripping the diff/LLM-output back into the webview's JSON-serialized world.</li>
   <li>Styling uses VS Code's theme CSS variables (<code>--vscode-foreground</code>, <code>--vscode-button-background</code>, etc.) so the view automatically matches Light/Dark/High-Contrast themes — never hard-code colours.</li>
   <li>The view is initialized lazily: <code>resolveWebviewView</code> only fires when the user expands the view. The first <code>{ type: "ready" }</code> message from the webview triggers an initial <code>state</code> post so the saved state (if any) is restored.</li>
+</ul>
+
+<h3>Cross-view navigation (SCM ↔ Commit Suggestion)</h3>
+<ul>
+  <li>To reveal the Commit Suggestion panel from anywhere, execute <code>vscode.commands.executeCommand("gitCommitSuggestion.view.focus")</code>. The pattern is <code>&lt;viewId&gt;.focus</code> — VS Code auto-generates this command for <strong>every</strong> view declared under <code>contributes.views</code>. <span class="danger" style="display:inline">DO NOT use <code>workbench.view.&lt;containerId&gt;</code>: that pattern only exists for built-in containers (<code>scm</code>, <code>explorer</code>, <code>debug</code>, <code>extensions</code>, …). For extension-contributed activity-bar containers, the auto-generated command is <code>workbench.view.extension.&lt;containerId&gt;</code> (note the extra <code>.extension</code>), and the safest reliable handle is the per-view <code>&lt;viewId&gt;.focus</code> form.</span> An earlier revision of this code used <code>workbench.view.gitCommitSuggestion</code> and threw "command not found" at runtime; the per-view focus form fixed it.</li>
+  <li>To reveal the Source Control panel, execute <code>vscode.commands.executeCommand("workbench.view.scm")</code>. This is the built-in SCM container and is always available regardless of which Activity Bar containers the extension contributes.</li>
+  <li>Calling the focus command before the webview is resolved is safe: <code>resolveWebviewView</code> will fire as a result, and any state changes the extension makes in the meantime (e.g. <code>setLoading()</code> inside <code>runSuggest</code>) are buffered — <code>post()</code> short-circuits when <code>this.view</code> is undefined and the state is replayed once the webview sends its first <code>{ type: "ready" }</code>.</li>
+  <li>The lightbulb in <code>scm/title</code> (Source Control title bar) runs <code>gitCommitSuggestion.openPanel</code> — a pure-navigation command that <em>only</em> focuses <code>workbench.view.gitCommitSuggestion</code> and does not call the LLM. The user-facing reason: the SCM toolbar is high-traffic, and an LLM call per accidental tap is unacceptable. The user must click "Suggest" inside the panel to spend tokens. The other entry points (status bar item, command palette "Suggest Commit Message", view-title button inside the panel itself) keep using <code>gitCommitSuggestion.suggest</code>, which focuses the panel <em>and</em> immediately runs the suggestion flow through the webview source path.</li>
+  <li>The QuickPick code path (<code>pickSuggestion</code>, <code>source === "command"</code> branch in <code>runSuggest</code>) is currently unused — every entry point now drives the webview — but the function is kept around in case a future entry point wants a non-panel UX.</li>
+  <li>After <code>writeToScmInput</code> succeeds, <code>applySuggestion</code> executes <code>workbench.view.scm</code> so the user lands back on Source Control and can see the populated input box. Without this, "Use this" silently writes the message and leaves the user still looking at the Commit Suggestion panel, which makes the write feel like a no-op.</li>
+  <li><strong>Detecting commits to invalidate stale suggestions.</strong> The Git extension's <code>repository.state.onDidChange</code> event fires for many reasons (index changed, worktree changed, branch changed, HEAD changed). To detect a commit specifically, snapshot <code>repository.state.HEAD?.commit</code> at attach time and compare on every event — only fire downstream side effects when the SHA actually changes. This catches new commits, amends, resets, and checkouts; it does NOT mistake an index/worktree poke for a commit. See <code>watchCommits()</code> in <code>src/ui/scm-writer.ts</code>. The watcher also subscribes to <code>api.onDidOpenRepository</code> so repos opened after activation are attached too.</li>
+  <li>On a HEAD change, the extension drops <code>suggestionsRef.current</code> and calls <code>view.clearSuggestions()</code>. The clear is guarded by a length check — if the panel was already empty (idle or error state), we skip the repost to avoid clobbering an existing error banner with a fresh idle state.</li>
+</ul>
+
+<h3>Cancelling an in-flight LLM request (Stop button)</h3>
+<ul>
+  <li><strong>Single-button UX, not a separate Stop control.</strong> The header "Suggest" button doubles as Stop while <code>state.status === "loading"</code>: <code>render()</code> swaps its label (<code>suggestBtn</code>) and a closure-scoped <code>currentStatus</code> drives the click handler — loading sends <code>{ type: "stop" }</code>, anything else sends <code>{ type: "suggest" }</code>. The button has no <code>data-i18n</code> attribute precisely because its label is computed per-render; <code>applyI18n()</code> would otherwise overwrite the dynamic "Stop" label on every settings sync.</li>
+  <li><strong>Cancellation flows AbortSignal end-to-end.</strong> <code>GenerateArgs.signal?: AbortSignal</code> in <code>providers/base.ts</code> is forwarded to every provider's <code>fetch()</code>. Each provider's network-error catch re-throws <code>AbortError</code> as-is rather than wrapping it in <code>ProviderError</code> — otherwise the orchestrator would treat cancellation as a generic network failure and burn the next auto-chain leg. The orchestrator also short-circuits its auto-chain loop on <code>signal?.aborted</code> for the same reason.</li>
+  <li><strong>One controller per run, tracked in a ref.</strong> <code>extension.ts</code> holds <code>inFlightRef: { current?: AbortController }</code>. <code>runSuggest()</code> aborts any pre-existing controller before installing its own (double-click protection), and clears the ref in <code>finally</code> only if <code>inFlightRef.current === controller</code> — a newer run may have already replaced it. The <code>onStop</code> callback is fire-and-forget <code>inFlightRef.current?.abort()</code>; <code>runSuggest</code>'s <code>catch</code> sees <code>controller.signal.aborted</code> and calls <code>view.setIdle()</code> silently (no error toast — cancellation is not an error).</li>
 </ul>
 
 <h2 id="layout">Repo layout principle</h2>

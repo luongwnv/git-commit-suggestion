@@ -2,7 +2,7 @@
   "name": "git-commit-suggestion",
   "displayName": "Git Commit Suggestion",
   "description": "LLM-powered Conventional Commits suggestions from the staged diff. Bilingual EN+VI. Mistral free tier by default; BYOK for OpenAI/Anthropic/Groq; local Ollama; optional unofficial reverse-proxy provider.",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "publisher": "luongwnv",
   "license": "MIT",
   "repository": {
@@ -13,8 +13,39 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["SCM Providers", "Other"],
-  "keywords": ["git", "commit", "conventional-commits", "llm", "mistral", "vietnamese"],
+  "categories": ["SCM Providers", "AI", "Machine Learning", "Other"],
+  "keywords": [
+    "git",
+    "commit",
+    "commit-message",
+    "commit messages",
+    "conventional-commits",
+    "conventional commits",
+    "ai",
+    "ai-commit",
+    "ai commit message",
+    "auto commit",
+    "llm",
+    "gpt",
+    "chatgpt",
+    "openai",
+    "anthropic",
+    "claude",
+    "mistral",
+    "groq",
+    "ollama",
+    "huggingface",
+    "local llm",
+    "ai assistant",
+    "bilingual",
+    "multilingual",
+    "scm",
+    "source control",
+    "productivity",
+    "automation",
+    "developer tools",
+    "git workflow"
+  ],
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -24,6 +55,12 @@
       {
         "command": "gitCommitSuggestion.suggest",
         "title": "Suggest Commit Message",
+        "category": "Git Commit Suggestion",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "gitCommitSuggestion.openPanel",
+        "title": "Open Commit Suggestion Panel",
         "category": "Git Commit Suggestion",
         "icon": "$(lightbulb)"
       },
@@ -41,7 +78,7 @@
     "menus": {
       "scm/title": [
         {
-          "command": "gitCommitSuggestion.suggest",
+          "command": "gitCommitSuggestion.openPanel",
           "group": "navigation",
           "when": "scmProvider == git"
         }
@@ -144,6 +181,11 @@
           "type": "boolean",
           "default": true,
           "description": "Include the explanation body in the commit message. Disable for subject-only commits."
+        },
+        "gitCommitSuggestion.showScope": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include the conventional-commits scope (e.g. 'auth' in 'feat(auth): …') in the rendered subject. Disable to render 'feat: …' instead."
         }
       }
     }

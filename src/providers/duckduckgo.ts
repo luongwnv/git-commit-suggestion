@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 // DuckDuckGo AI Chat (duckduckgo.com/aichat) is officially advertised as a
 // privacy-respecting free chat UI. It uses a public endpoint that requires a
@@ -22,7 +22,7 @@ const MODELS: Record<string, string> = {
   "o3-mini": "o3-mini",
 };
 
-async function fetchVqd(): Promise<string> {
+async function fetchVqd(signal?: AbortSignal): Promise<string> {
   const resp = await fetch("https://duckduckgo.com/duckchat/v1/status", {
     method: "GET",
     headers: {
@@ -30,6 +30,7 @@ async function fetchVqd(): Promise<string> {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
     },
+    signal,
   });
   if (!resp.ok) {
     throw new Error(`Handshake failed: HTTP ${resp.status}`);
@@ -52,7 +53,13 @@ async function fetchVqd(): Promise<string> {
   return vqd;
 }
 
-async function postChat(vqd: string, model: string, system: string, user: string): Promise<string> {
+async function postChat(
+  vqd: string,
+  model: string,
+  system: string,
+  user: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const resp = await fetch("https://duckduckgo.com/duckchat/v1/chat", {
     method: "POST",
     headers: {
@@ -68,10 +75,11 @@ async function postChat(vqd: string, model: string, system: string, user: string
         { role: "user", content: `${system}\n\n${user}` },
       ],
     }),
+    signal,
   });
   if (!resp.ok) {
     const t = await resp.text();
-    throw new Error(`HTTP ${resp.status}: ${t.slice(0, 200)}`);
+    throw new Error(`HTTP ${resp.status}: ${summarizeErrorBody(t)}`);
   }
   // Stream is SSE-style: `data: {"message":"chunk"}\ndata: {"message":""}` ...
   // Concatenate all `message` fields. Final terminator is `data: [DONE]`.
@@ -97,15 +105,17 @@ export class DuckDuckGoProvider extends Provider {
     const modelId = MODELS[requested] ?? requested;
     let vqd: string;
     try {
-      vqd = await fetchVqd();
+      vqd = await fetchVqd(args.signal);
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, (err as Error).message);
     }
     try {
-      const text = await postChat(vqd, modelId, args.systemPrompt, args.userPrompt);
+      const text = await postChat(vqd, modelId, args.systemPrompt, args.userPrompt, args.signal);
       if (!text.trim()) throw new Error("Empty response");
       return { rawText: text };
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, (err as Error).message);
     }
   }

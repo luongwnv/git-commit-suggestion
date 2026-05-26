@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 // Pollinations.ai is a free community-sponsored gateway that speaks the
 // OpenAI Chat Completions schema. No key, no signup.
@@ -45,14 +45,16 @@ export class PollinationsProvider extends Provider {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: args.signal,
       });
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, `Network error: ${(err as Error).message}`);
     }
 
     if (!resp.ok) {
       const text = await resp.text();
-      throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`, resp.status);
+      throw new ProviderError(this.id, `HTTP ${resp.status}: ${summarizeErrorBody(text)}`, resp.status);
     }
 
     // Pollinations sometimes returns plain text, sometimes the full OpenAI

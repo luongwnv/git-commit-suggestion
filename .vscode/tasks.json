@@ -3,27 +3,17 @@
   "tasks": [
     {
       "label": "npm: compile",
-      "type": "shell",
-      "command": "./node_modules/.bin/tsc",
-      "args": ["-p", "."],
-      "options": {
-        "env": {
-          "PATH": "${env:HOME}/.nvm/versions/node/v22.22.1/bin:/usr/local/bin:/usr/bin:/bin"
-        }
-      },
+      "type": "process",
+      "command": "${userHome}/.nvm/versions/node/v22.17.1/bin/node",
+      "args": ["${workspaceFolder}/node_modules/typescript/bin/tsc", "-p", "."],
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": "$tsc"
     },
     {
       "label": "npm: watch",
-      "type": "shell",
-      "command": "./node_modules/.bin/tsc",
-      "args": ["-w", "-p", "."],
-      "options": {
-        "env": {
-          "PATH": "${env:HOME}/.nvm/versions/node/v22.22.1/bin:/usr/local/bin:/usr/bin:/bin"
-        }
-      },
+      "type": "process",
+      "command": "${userHome}/.nvm/versions/node/v22.17.1/bin/node",
+      "args": ["${workspaceFolder}/node_modules/typescript/bin/tsc", "-w", "-p", "."],
       "isBackground": true,
       "problemMatcher": "$tsc-watch"
     }

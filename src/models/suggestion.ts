@@ -23,12 +23,13 @@ export interface FormatOptions {
   language: Language;
   showEmoji: boolean;
   showBody: boolean;
+  showScope: boolean;
 }
 
 export function formatCommitMessage(s: Suggestion, opts: FormatOptions): string {
-  const { language, showEmoji, showBody } = opts;
+  const { language, showEmoji, showBody, showScope } = opts;
   const emojiPrefix = showEmoji && TYPE_EMOJI[s.type] ? `${TYPE_EMOJI[s.type]} ` : "";
-  const scope = s.scope ? `(${s.scope})` : "";
+  const scope = showScope && s.scope ? `(${s.scope})` : "";
 
   // For non-English/Vietnamese languages the prompt writes the requested
   // language into both subject_en and subject_vi — prefer subject_en, fall

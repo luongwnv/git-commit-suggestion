@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 // OpenAI-style /chat/completions schema. Mistral, OpenAI, Groq, and g4f all
 // speak this. Anthropic and Ollama do not — they have their own classes.
@@ -36,14 +36,16 @@ export class OpenAICompatibleProvider extends Provider {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        signal: args.signal,
       });
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, `Network error: ${(err as Error).message}`);
     }
 
     if (!resp.ok) {
       const text = await resp.text();
-      throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`, resp.status);
+      throw new ProviderError(this.id, `HTTP ${resp.status}: ${summarizeErrorBody(text)}`, resp.status);
     }
 
     const json = (await resp.json()) as {

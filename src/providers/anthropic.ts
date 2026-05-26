@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 export class AnthropicProvider extends Provider {
   override async generate(args: GenerateArgs): Promise<ProviderResponse> {
@@ -28,14 +28,16 @@ export class AnthropicProvider extends Provider {
           "anthropic-version": this.entry.api_version ?? "2023-06-01",
         },
         body: JSON.stringify(body),
+        signal: args.signal,
       });
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, `Network error: ${(err as Error).message}`);
     }
 
     if (!resp.ok) {
       const text = await resp.text();
-      throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`, resp.status);
+      throw new ProviderError(this.id, `HTTP ${resp.status}: ${summarizeErrorBody(text)}`, resp.status);
     }
 
     const json = (await resp.json()) as {

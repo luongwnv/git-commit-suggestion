@@ -28,6 +28,7 @@ export class G4FProvider extends OpenAICompatibleProvider {
       try {
         return await OpenAICompatibleProvider.prototype.generate.call(cloned, args);
       } catch (err) {
+        if ((err as Error).name === "AbortError") throw err;
         lastError = err as Error;
       }
     }

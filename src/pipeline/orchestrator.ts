@@ -15,6 +15,10 @@ export interface OrchestratorDeps {
   config: ExtensionConfig;
   getApiKey: (providerId: string) => PromiseLike<string | undefined>;
   log: (msg: string) => void;
+  // When set, forwarded to provider fetch calls so the Stop button can
+  // abort the in-flight LLM request. Auto-mode short-circuits the chain
+  // once `signal.aborted` is true rather than walking to the next leg.
+  signal?: AbortSignal;
 }
 
 export interface OrchestratorResult {
@@ -51,12 +55,14 @@ async function callProvider(
   userPrompt: string,
   apiKey: string | undefined,
   modelOverride: string,
+  signal: AbortSignal | undefined,
 ): Promise<Suggestion[]> {
   const resp = await provider.generate({
     systemPrompt,
     userPrompt,
     apiKey,
     model: provider.resolveModel(modelOverride),
+    signal,
   });
   return parseSuggestions(resp.rawText);
 }
@@ -70,6 +76,7 @@ interface AttemptArgs {
   userPrompt: string;
   getApiKey: OrchestratorDeps["getApiKey"];
   log: OrchestratorDeps["log"];
+  signal?: AbortSignal;
 }
 
 interface AttemptResult {
@@ -93,6 +100,7 @@ async function attempt(args: AttemptArgs): Promise<AttemptResult> {
     args.userPrompt,
     key,
     args.modelOverride,
+    args.signal,
   );
   return { suggestions, label: `${args.id} (${keySource})` };
 }
@@ -135,10 +143,13 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
     userPrompt: user,
     getApiKey,
     log,
+    signal: deps.signal,
   };
 
   // Auto mode: walk the chain, return the first success. Surface the chain
-  // of errors in the final exception if every leg fails.
+  // of errors in the final exception if every leg fails. If the caller
+  // aborted (Stop button), re-throw the abort immediately rather than
+  // burning subsequent legs on a request that's already cancelled.
   if (config.provider === "auto") {
     const errors: string[] = [];
     for (const id of AUTO_CHAIN) {
@@ -146,6 +157,7 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
         const r = await attempt({ id, ...baseArgs });
         return { suggestions: r.suggestions, providerUsed: `auto → ${r.label}`, truncated: diff.truncated };
       } catch (err) {
+        if ((err as Error).name === "AbortError" || deps.signal?.aborted) throw err;
         const msg = (err as Error).message;
         log(`auto: ${id} failed — ${msg}`);
         errors.push(`${id}: ${msg}`);

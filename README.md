@@ -82,38 +82,6 @@ For private repos with sensitive code: use **Mistral** or **Anthropic** with you
 | All providers in *Auto* fail | A community provider may be down. Switch to a BYOK provider (Mistral has a free tier). |
 | Subject is in the wrong language | Re-pick the output language from the dropdown and click *Suggest* again. |
 
-## Publishing
-
-If you forked this and want to publish your own version to the Marketplace:
-
-```bash
-# One-time setup
-npm install -g @vscode/vsce
-
-# Create a Personal Access Token at https://dev.azure.com → User → Personal Access Tokens
-#   Scope: Marketplace → Manage
-# Then create a publisher at https://marketplace.visualstudio.com/manage and
-# log in:
-vsce login <your-publisher-id>
-
-# Verify the package contents (dry run):
-vsce package
-# Inspect the produced .vsix in any zip viewer.
-
-# Publish:
-vsce publish
-# or with explicit version bump:
-vsce publish patch    # 0.1.0 → 0.1.1
-vsce publish minor    # 0.1.0 → 0.2.0
-```
-
-Before first publish, edit `package.json`:
-- `publisher`: your Marketplace publisher id (not your GitHub username).
-- `repository.url`, `bugs.url`, `homepage` (optional but recommended).
-- `version`: starts at `0.1.0`.
-
-The Marketplace lists files matching `.vscodeignore` so the .vsix stays small (excludes `src/`, `test/`, `node_modules/`, source maps).
-
 ## Contributing
 
 Developer guide and architecture notes live in [CONTRIBUTING.md](CONTRIBUTING.md). Provider quirks and gotchas are in [docs/knowledge-base.html](docs/knowledge-base.html).

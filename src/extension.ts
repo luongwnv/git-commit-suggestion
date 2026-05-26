@@ -11,7 +11,7 @@ import {
 import { Suggestion, formatCommitMessage } from "./models/suggestion";
 import { suggestCommits } from "./pipeline/orchestrator";
 import { pickSuggestion } from "./ui/quick-pick";
-import { writeToScmInput } from "./ui/scm-writer";
+import { watchCommits, writeToScmInput } from "./ui/scm-writer";
 import { createStatusBarItem } from "./ui/status-bar";
 import { CommitSuggestionViewProvider, DisplaySettings } from "./ui/webview-view";
 import { t } from "./utils/i18n";
@@ -36,6 +36,7 @@ const CONFIG_DEFAULTS: ExtensionConfig = {
   ollamaBaseUrl: "http://localhost:11434",
   showEmoji: true,
   showBody: true,
+  showScope: true,
 };
 
 function readConfig(): ExtensionConfig {
@@ -53,6 +54,7 @@ function readConfig(): ExtensionConfig {
     ollamaBaseUrl: c.get("ollamaBaseUrl"),
     showEmoji: c.get("showEmoji"),
     showBody: c.get("showBody"),
+    showScope: c.get("showScope"),
   };
   const parsed = ExtensionConfigSchema.safeParse(raw);
   if (parsed.success) return parsed.data;
@@ -80,6 +82,7 @@ function settingsFromConfig(config: ExtensionConfig): DisplaySettings {
     suggestionCount: config.suggestionCount,
     showEmoji: config.showEmoji,
     showBody: config.showBody,
+    showScope: config.showScope,
   };
 }
 
@@ -103,6 +106,7 @@ async function runSuggest(
   secrets: vscode.SecretStorage,
   view: CommitSuggestionViewProvider,
   suggestionsRef: { current: Suggestion[] },
+  inFlightRef: { current?: AbortController },
   source: "webview" | "command",
 ): Promise<void> {
   const cwd = getWorkspaceRoot();
@@ -125,6 +129,12 @@ async function runSuggest(
   }
 
   const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
+  // If a previous run is somehow still pending (e.g. user double-clicked
+  // Suggest before the first request settled), abort it so we don't end up
+  // with two in-flight controllers and a stale Stop button.
+  inFlightRef.current?.abort();
+  const controller = new AbortController();
+  inFlightRef.current = controller;
   view.setLoading(settings, hasUserKey);
 
   try {
@@ -134,6 +144,7 @@ async function runSuggest(
       config,
       getApiKey: (p) => secrets.get(SECRET_KEY(p)),
       log,
+      signal: controller.signal,
     });
     suggestionsRef.current = result.suggestions;
     view.setSuggestions(result.suggestions, result.providerUsed, settings, hasUserKey);
@@ -146,15 +157,27 @@ async function runSuggest(
         t("pickSuggestion"),
         config.showEmoji,
         config.showBody,
+        config.showScope,
       );
       if (!picked) return;
       await applySuggestion(cwd, picked.suggestion, picked.finalMessage);
     }
   } catch (err) {
+    // User clicked Stop (or another run preempted us): drop silently back
+    // to idle. No toast — cancellation isn't an error worth flagging.
+    if (controller.signal.aborted) {
+      log("Suggestion cancelled by user");
+      view.setIdle(settings, hasUserKey);
+      return;
+    }
     const msg = (err as Error).message;
     log(`ERROR: ${msg}`);
     view.setError(msg, settings, hasUserKey);
     vscode.window.showErrorMessage(`Git Commit Suggestion: ${msg}`);
+  } finally {
+    // Only clear if WE are still the active controller; a newer run may
+    // have already replaced us.
+    if (inFlightRef.current === controller) inFlightRef.current = undefined;
   }
 }
 
@@ -185,8 +208,14 @@ async function applySuggestion(
   finalMessage: string,
 ): Promise<void> {
   const ok = await writeToScmInput(cwd, finalMessage);
-  if (ok) vscode.window.showInformationMessage(t("written"));
-  else {
+  if (ok) {
+    vscode.window.showInformationMessage(t("written"));
+    // After a successful write, surface the SCM view so the user sees the
+    // populated input box and can review/commit. Without this the
+    // Commit Suggestion panel stays focused and the write is invisible
+    // unless the user manually switches tabs.
+    await vscode.commands.executeCommand("workbench.view.scm");
+  } else {
     await vscode.env.clipboard.writeText(finalMessage);
     vscode.window.showWarningMessage("SCM input not found; copied to clipboard.");
   }
@@ -226,6 +255,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const suggestionsRef: { current: Suggestion[] } = { current: [] };
   const viewRef: { current?: CommitSuggestionViewProvider } = {};
+  // Tracks the in-flight LLM request so the Stop button (and a fresh
+  // Suggest click) can cancel whichever fetch is currently pending.
+  const inFlightRef: { current?: AbortController } = {};
 
   const refresh = async (): Promise<void> => {
     if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
@@ -235,7 +267,12 @@ export function activate(context: vscode.ExtensionContext): void {
     context.extensionUri,
     {
       onSuggest: () =>
-        runSuggest(context.extensionPath, context.secrets, viewRef.current!, suggestionsRef, "webview"),
+        runSuggest(context.extensionPath, context.secrets, viewRef.current!, suggestionsRef, inFlightRef, "webview"),
+      onStop: () => {
+        // Fire-and-forget abort: runSuggest's catch+finally handle the
+        // view state transition back to idle and clear inFlightRef.
+        inFlightRef.current?.abort();
+      },
       onUse: async (_suggestion, finalMessage) => {
         const cwd = getWorkspaceRoot();
         if (!cwd) return;
@@ -288,6 +325,10 @@ export function activate(context: vscode.ExtensionContext): void {
         await updateGlobal("showBody", value);
         await refresh();
       },
+      onSetShowScope: async (value) => {
+        await updateGlobal("showScope", value);
+        await refresh();
+      },
       onReady: refresh,
     },
     suggestionsRef,
@@ -295,11 +336,34 @@ export function activate(context: vscode.ExtensionContext): void {
   viewRef.current = view;
 
   context.subscriptions.push(createStatusBarItem());
+
+  // Discard the on-screen suggestions whenever HEAD moves — the diff they
+  // were generated from is gone, so the cards are stale. Only fire if the
+  // panel currently has cards, to avoid spurious idle-state reposts.
+  void watchCommits(() => {
+    if (suggestionsRef.current.length === 0) return;
+    suggestionsRef.current = [];
+    view.clearSuggestions();
+  }).then((d) => context.subscriptions.push(d));
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(CommitSuggestionViewProvider.viewId, view),
-    vscode.commands.registerCommand("gitCommitSuggestion.suggest", () =>
-      runSuggest(context.extensionPath, context.secrets, view, suggestionsRef, "command"),
-    ),
+    vscode.commands.registerCommand("gitCommitSuggestion.suggest", async () => {
+      // Status bar / command palette / view-title entry point: reveal the
+      // panel and immediately request suggestions. The lightbulb inside
+      // Source Control intentionally goes through `openPanel` instead so
+      // it just navigates without auto-triggering the LLM.
+      await vscode.commands.executeCommand("gitCommitSuggestion.view.focus");
+      await runSuggest(context.extensionPath, context.secrets, view, suggestionsRef, inFlightRef, "webview");
+    }),
+    vscode.commands.registerCommand("gitCommitSuggestion.openPanel", async () => {
+      // Wired to the SCM title lightbulb. Pure navigation — opens the
+      // Commit Suggestion view container and stops there. The user can
+      // then click "Suggest" inside the panel when they want the LLM to
+      // run; this avoids spending tokens on every accidental tap of the
+      // SCM toolbar.
+      await vscode.commands.executeCommand("gitCommitSuggestion.view.focus");
+    }),
     vscode.commands.registerCommand("gitCommitSuggestion.setApiKey", () =>
       commandSetApiKey(context.secrets),
     ),

@@ -16,6 +16,7 @@ describe("formatCommitMessage", () => {
       language: "en",
       showEmoji: false,
       showBody: true,
+      showScope: true,
     });
     assert.ok(msg.startsWith("feat(auth): add login endpoint"), msg);
     assert.ok(msg.includes("Wires up"));
@@ -27,6 +28,7 @@ describe("formatCommitMessage", () => {
       language: "vi",
       showEmoji: false,
       showBody: true,
+      showScope: true,
     });
     assert.ok(msg.startsWith("feat(auth): thêm endpoint đăng nhập"), msg);
     assert.ok(msg.includes("bcrypt"));
@@ -39,6 +41,7 @@ describe("formatCommitMessage", () => {
       language: "en",
       showEmoji: false,
       showBody: true,
+      showScope: true,
     });
     assert.ok(msg.startsWith("feat: add login endpoint"));
   });
@@ -48,6 +51,7 @@ describe("formatCommitMessage", () => {
       language: "en",
       showEmoji: true,
       showBody: false,
+      showScope: true,
     });
     assert.ok(msg.startsWith("✨ feat(auth)"), msg);
   });
@@ -57,9 +61,21 @@ describe("formatCommitMessage", () => {
       language: "en",
       showEmoji: false,
       showBody: false,
+      showScope: true,
     });
     assert.ok(!msg.includes("Wires up"));
     assert.strictEqual(msg.split("\n").length, 1);
+  });
+
+  it("omits scope when showScope=false", () => {
+    const msg = formatCommitMessage(sample, {
+      language: "en",
+      showEmoji: false,
+      showBody: false,
+      showScope: false,
+    });
+    assert.ok(msg.startsWith("feat: add login endpoint"), msg);
+    assert.ok(!msg.includes("(auth)"));
   });
 
   it("uses subject_en for non-English/Vietnamese languages", () => {
@@ -76,6 +92,7 @@ describe("formatCommitMessage", () => {
       language: "zh",
       showEmoji: false,
       showBody: false,
+      showScope: true,
     });
     assert.ok(msg.includes("添加登录端点"));
   });

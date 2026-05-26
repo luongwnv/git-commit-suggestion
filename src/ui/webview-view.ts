@@ -21,6 +21,7 @@ const TYPE_EMOJI: Record<string, string> = {
 type FromWebview =
   | { type: "ready" }
   | { type: "suggest" }
+  | { type: "stop" }
   | { type: "use"; index: number }
   | { type: "paste-key" }
   | { type: "open-mistral-console" }
@@ -30,7 +31,8 @@ type FromWebview =
   | { type: "set-best-practice"; id: BestPracticeId; value: boolean }
   | { type: "set-suggestion-count"; count: number }
   | { type: "set-show-emoji"; value: boolean }
-  | { type: "set-show-body"; value: boolean };
+  | { type: "set-show-body"; value: boolean }
+  | { type: "set-show-scope"; value: boolean };
 
 type ToWebview = { type: "state"; state: ViewState };
 
@@ -44,6 +46,7 @@ export interface DisplaySettings {
   suggestionCount: number;
   showEmoji: boolean;
   showBody: boolean;
+  showScope: boolean;
 }
 
 interface ViewState {
@@ -106,6 +109,7 @@ interface SerializedSuggestion {
 
 export interface ViewCallbacks {
   onSuggest: () => Promise<void>;
+  onStop: () => void;
   onUse: (suggestion: Suggestion, finalMessage: string) => Promise<void>;
   onPasteKey: () => Promise<void>;
   onOpenMistralConsole: () => Promise<void>;
@@ -116,6 +120,7 @@ export interface ViewCallbacks {
   onSetSuggestionCount: (count: number) => Promise<void>;
   onSetShowEmoji: (value: boolean) => Promise<void>;
   onSetShowBody: (value: boolean) => Promise<void>;
+  onSetShowScope: (value: boolean) => Promise<void>;
   onReady: () => Promise<void>;
 }
 
@@ -127,6 +132,7 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   suggestionCount: 4,
   showEmoji: true,
   showBody: true,
+  showScope: true,
 };
 
 const BEST_PRACTICE_IDS = Object.keys(BEST_PRACTICE_LABELS) as BestPracticeId[];
@@ -205,6 +211,22 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     this.post();
   }
 
+  // Drop the current suggestions while keeping the existing settings +
+  // hasUserKey intact. Called when an external event (e.g. a new git commit)
+  // makes the on-screen suggestions stale. Distinct from setIdle so callers
+  // don't have to round-trip through readConfig() / SecretStorage just to
+  // empty the cards.
+  clearSuggestions(): void {
+    this.state = {
+      ...this.state,
+      status: "idle",
+      suggestions: [],
+      providerLabel: undefined,
+      errorMessage: undefined,
+    };
+    this.post();
+  }
+
   // Update just the settings + hasUserKey while preserving any in-flight
   // suggestions. Used when a UI toggle changes config — we don't want
   // toggling "show emoji" to wipe the cards the user already has.
@@ -236,6 +258,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
           language: settings.language,
           showEmoji: settings.showEmoji,
           showBody: settings.showBody,
+          showScope: settings.showScope,
         }),
       })),
     };
@@ -260,6 +283,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       case "suggest":
         await this.cb.onSuggest();
         break;
+      case "stop":
+        this.cb.onStop();
+        break;
       case "use": {
         const s = this.suggestionsRef.current[msg.index];
         if (!s) return;
@@ -271,6 +297,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
           language: this.state.settings.language,
           showEmoji: this.state.settings.showEmoji,
           showBody: this.state.settings.showBody,
+          showScope: this.state.settings.showScope,
         });
         await this.cb.onUse(s, final);
         break;
@@ -301,6 +328,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
         break;
       case "set-show-body":
         await this.cb.onSetShowBody(msg.value);
+        break;
+      case "set-show-scope":
+        await this.cb.onSetShowScope(msg.value);
         break;
     }
   }
@@ -376,6 +406,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     height: 32px;
     display: inline-flex;
     align-items: center;
+  }
+  /* Suggest/Stop is one button whose label flips at runtime. Pin a min-width
+     wide enough for the longer of the two labels in any supported language
+     and center the text so the button stays put when the label changes —
+     otherwise the header reflows every time we toggle states. */
+  #suggest-btn {
+    min-width: 96px;
+    justify-content: center;
   }
   button:hover { background: var(--vscode-button-hoverBackground); }
   button:disabled { opacity: 0.55; cursor: default; }
@@ -516,7 +554,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   <div class="header">
     <span class="provider" id="provider"></span>
     <button class="icon-btn" id="settings-btn" title="Settings">${GEAR_SVG}</button>
-    <button id="suggest-btn" data-i18n="suggestBtn">Suggest</button>
+    <button id="suggest-btn">Suggest</button>
   </div>
   <div class="settings hidden" id="settings">
     <div class="settings-row">
@@ -549,6 +587,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       <input type="checkbox" id="body-toggle">
       <label for="body-toggle" data-i18n="showBody">Include explanation body</label>
     </div>
+    <div class="settings-row inline">
+      <input type="checkbox" id="scope-toggle">
+      <label for="scope-toggle" data-i18n="showScope">Show scope in subject</label>
+    </div>
   </div>
   <div id="banner"></div>
   <div id="content"><div class="empty">Stage some files, then click <b>Suggest</b>.</div></div>
@@ -568,6 +610,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   const countInput = $("count-input");
   const emojiToggle = $("emoji-toggle");
   const bodyToggle = $("body-toggle");
+  const scopeToggle = $("scope-toggle");
 
   // Per-language translations for the Detail level dropdown.
   const DETAIL_TRANSLATIONS = ${JSON.stringify(DETAIL_TRANSLATIONS_TABLE)};
@@ -604,7 +647,21 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     if (prev) detailSelect.value = prev;
   }
 
-  suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
+  // The Suggest button doubles as a Stop button while a request is in flight
+  // — same DOM element, label flipped in render() based on currentStatus.
+  // Using a single button avoids layout shift and removes a separate stop
+  // affordance the user has to look for.
+  let currentStatus = "idle";
+  suggestBtn.addEventListener("click", () => {
+    if (currentStatus === "loading") {
+      // Disable immediately to absorb double-taps; render() will re-enable
+      // once the extension transitions us back to idle.
+      suggestBtn.disabled = true;
+      vscode.postMessage({ type: "stop" });
+    } else {
+      vscode.postMessage({ type: "suggest" });
+    }
+  });
   settingsBtn.addEventListener("click", () => settingsEl.classList.toggle("hidden"));
   providerSelect.addEventListener("change", (e) =>
     vscode.postMessage({ type: "set-provider", providerId: e.target.value }));
@@ -621,6 +678,8 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     vscode.postMessage({ type: "set-show-emoji", value: e.target.checked }));
   bodyToggle.addEventListener("change", (e) =>
     vscode.postMessage({ type: "set-show-body", value: e.target.checked }));
+  scopeToggle.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-show-scope", value: e.target.checked }));
 
   // Best-practice checkboxes. Each emits set-best-practice with its id.
   document.querySelectorAll('input[data-bp]').forEach((cb) => {
@@ -676,7 +735,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 
   function renderCard(s, idx, settings) {
     const language = settings.language;
-    const scope = s.scope ? "(" + escapeHtml(s.scope) + ")" : "";
+    const scope = settings.showScope && s.scope ? "(" + escapeHtml(s.scope) + ")" : "";
     const showEn = language !== "vi";
     const showVi = language === "vi" || language === "bilingual";
     const isOther = language !== "en" && language !== "vi" && language !== "bilingual";
@@ -721,6 +780,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     }
     if (emojiToggle.checked !== settings.showEmoji) emojiToggle.checked = settings.showEmoji;
     if (bodyToggle.checked !== settings.showBody) bodyToggle.checked = settings.showBody;
+    if (scopeToggle.checked !== settings.showScope) scopeToggle.checked = settings.showScope;
     // Sync best-practice checkboxes from the active list.
     const active = new Set(settings.bestPractices || []);
     document.querySelectorAll('input[data-bp]').forEach((cb) => {
@@ -735,7 +795,13 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     providerEl.textContent = state.providerLabel
       ? uiStr("providerLabel", lang) + " " + state.providerLabel
       : "";
-    suggestBtn.disabled = state.status === "loading";
+    currentStatus = state.status;
+    // Single Suggest/Stop button: loading → "Stop", anything else → "Suggest".
+    // Always enabled — disabling during loading would defeat the Stop affordance.
+    suggestBtn.textContent = state.status === "loading"
+      ? uiStr("stopBtn", lang)
+      : uiStr("suggestBtn", lang);
+    suggestBtn.disabled = false;
     syncSettings(state.settings);
     renderBanner(state);
     if (state.status === "loading") {

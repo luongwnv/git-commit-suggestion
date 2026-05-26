@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>git-commit-suggestion — lessons</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; max-width: 880px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { margin-top: 2em; color: #06c; }
+  h3 { margin-top: 1.4em; }
+  code, pre { background: #f4f4f4; border-radius: 3px; padding: 0 .3em; }
+  pre { padding: .6em; overflow-x: auto; }
+  .warn { background: #fff3cd; border-left: 4px solid #f0ad4e; padding: .5em .8em; }
+  .danger { background: #f8d7da; border-left: 4px solid #d9534f; padding: .5em .8em; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: .4em .6em; text-align: left; }
+  th { background: #f7f7f7; }
+</style>
+</head>
+<body>
+<h1>Lessons</h1>
+<p>Tactical one-offs discovered while working on this project. Each entry is a single fact + the situation where it applies.</p>
+<div class="warn">Append; do not edit history.</div>
+
+<h2 id="vscode-contributions">VSCode extension contributions</h2>
+
+<h3><code>views</code> contribution rejects <code>when</code> clause silently</h3>
+<p><strong>Context:</strong> tried gating <code>views.scm</code> with <code>"when": "scmProvider == git"</code> so the panel only appears in git workspaces.</p>
+<p>Result: VSCode hid the view entirely — no error, no log. Context keys like <code>scmProvider</code> are valid only on <strong>menu</strong> contributions, not view contributions.</p>
+<p><strong>Apply:</strong> do not put <code>when</code> on a view contribution. Gate visibility from the extension's <code>activate()</code> via <code>vscode.commands.executeCommand("setContext", ...)</code> with a custom key, or just let the parent container's own visibility logic handle it.</p>
+
+<h3><code>tsconfig.rootDir: "."</code> + <code>include: ["src/**", "test/**"]</code> puts main at <code>out/src/extension.js</code></h3>
+<p><strong>Context:</strong> package.json <code>"main": "./out/extension.js"</code> caused "Cannot find module" on activation.</p>
+<p><strong>Apply:</strong> with rootDir=<code>.</code> and multi-dir include, tsc preserves the src/ prefix in the output. Either set <code>"main": "./out/src/extension.js"</code> (what we did) or move tests outside <code>include</code> and set rootDir=<code>src</code>.</p>
+
+<h3>Webview CSP must allow <code>style-src</code> inline + script nonce; no external assets</h3>
+<p><strong>Context:</strong> VSCode webviews sandbox aggressively. Browser-style <code>&lt;link&gt;</code> to local CSS or <code>require()</code> inside the inline script silently fails.</p>
+<p><strong>Apply:</strong> build the entire UI as one self-contained HTML string with inline <code>&lt;style&gt;</code> and one nonce'd <code>&lt;script&gt;</code>. For icons that need to be solid+themed, use inline SVG with <code>fill="currentColor"</code>.</p>
+
+<h3>Inject SVG into a webview's runtime JS string via <code>${JSON.stringify(SVG)}</code></h3>
+<p><strong>Context:</strong> webview script needs the raw SVG markup at runtime to swap an emoji for an icon inside dynamically-rendered HTML. <code>bannerEl.innerHTML = "..." + RAW_SVG + "..."</code> doesn't work because the SVG contains quotes/angle brackets that break the JS literal.</p>
+<p><strong>Apply:</strong> in the host-side template literal that emits the script, write <code>const remoteIcon = ${JSON.stringify(REMOTE_SVG)};</code>. The <code>JSON.stringify</code> runs at host build time, escaping the SVG into a valid JS string literal that the runtime script can concat freely.</p>
+
+<h3>Multi-tone source SVG → flatten to currentColor</h3>
+<p><strong>Context:</strong> source SVGs from svgrepo often have multiple explicit <code>fill="#XXXXXX"</code> colors. Inlining them locks the icon to those colors and breaks dark/HC themes.</p>
+<p><strong>Apply:</strong> change all <code>fill="..."</code> to either omit (inherit currentColor via the <code>fill="currentColor"</code> on <code>&lt;svg&gt;</code>) or use <code>fill-opacity</code> for the lighter shade. The icon then themes via <code>color:</code> CSS.</p>
+
+<h3><code>vscode.SecretStorage.get</code> returns <code>Thenable</code>, not <code>Promise</code></h3>
+<p><strong>Context:</strong> passing <code>secrets.get(...)</code> as a <code>Promise&lt;string | undefined&gt;</code> callback errors <code>TS2739: missing catch, finally, [Symbol.toStringTag]</code>.</p>
+<p><strong>Apply:</strong> type the callback signature as <code>PromiseLike&lt;string | undefined&gt;</code> or wrap the call.</p>
+
+<h2 id="git-cli-quirks">Git CLI quirks</h2>
+
+<h3><code>git diff --cached/--staged</code> falls through to <code>--no-index</code> mode silently</h3>
+<p><strong>Context:</strong> running <code>git diff --staged</code> from a directory that isn't a git repo prints "usage: git diff --no-index" and rejects <code>--staged</code> as unknown.</p>
+<p><strong>Apply:</strong> probe for repo root first (walk up looking for <code>.git</code>) before calling diff. Throw a clean error instead of letting git's misleading usage block surface to the user.</p>
+
+<h3>Prefer <code>--cached</code> over <code>--staged</code> for compatibility</h3>
+<p><strong>Context:</strong> <code>--staged</code> only exists since Git 2.18 (2018). <code>--cached</code> works back to 1.6.</p>
+<p><strong>Apply:</strong> no upside to requiring the newer spelling.</p>
+
+<h2 id="llm-provider-quirks">LLM provider quirks (no-key tier)</h2>
+
+<h3>Pollinations responses are sometimes <code>text/plain</code>, sometimes <code>application/json</code></h3>
+<p><strong>Apply:</strong> branch on <code>Content-Type</code>. If JSON, read <code>choices[0].message.content</code>; if plain, treat the whole body as the model output.</p>
+
+<h3>DuckDuckGo AI Chat needs a two-step handshake</h3>
+<p><strong>Context:</strong> GET <code>/duckchat/v1/status</code> with <code>x-vqd-accept: 1</code> → response header <code>x-vqd-4</code> is the session token → POST <code>/duckchat/v1/chat</code> with <code>x-vqd-4: &lt;token&gt;</code>. Response is SSE; concat <code>message</code> fields, ignore <code>[DONE]</code>.</p>
+<p><strong>Apply:</strong> Empty/non-browser UA gets rejected. Send Chrome-on-macOS UA. HTTP 418 means token expired → fetch a fresh vqd and retry once.</p>
+
+<h3>LLM JSON parse: strip <code>```json</code> fences, accept <code>{ suggestions: [...] }</code> wrapper</h3>
+<p><strong>Apply:</strong> even with <code>response_format: json_object</code>, ~10% of responses come wrapped. Parser must strip fences first, then look for <code>[...]</code> directly OR <code>"suggestions": [...]</code>.</p>
+
+<h2 id="git-workflow">Git workflow</h2>
+
+<h3><code>git add -A</code> includes random files dropped into the working tree</h3>
+<p><strong>Context:</strong> user dropped 6 SVG files into the project root (asset stash). Running <code>git add -A &amp;&amp; git commit</code> silently swept all of them into the commit, polluting history with three unrelated <code>smartphone-*.svg</code> files.</p>
+<p><strong>Apply:</strong> before any commit, scan <code>git status -s</code> for unexpected <code>??</code> entries. If a binary/asset file appears that you didn't touch, ask before adding. Prefer staging by explicit paths over <code>-A</code> when the working tree has mystery files.</p>
+
+<h3>When an unwanted file lands in HEAD, prefer <code>git restore --staged</code> over amend-rewriting</h3>
+<p><strong>Context:</strong> amending HEAD to drop the files would have been faster but risky during a multi-step commit chain. Removing files from the tree + committing the deletions is cleaner — history records the mistake and the cleanup, both honest.</p>
+<p><strong>Apply:</strong> only amend if HEAD hasn't been verified yet; otherwise create a follow-up cleanup commit.</p>
+
+<h3><code>response_format: json_object</code> on small models collapses arrays to single objects</h3>
+<p><strong>Context:</strong> Pollinations' anonymous tier (gpt-oss-20b) with <code>response_format: {type: "json_object"}</code> returns one bare suggestion object instead of the requested array — JSON schema mode constrains the output to <em>a</em> JSON object, not necessarily an array. The parser expecting <code>[{...}, {...}]</code> throws "No JSON array found".</p>
+<p><strong>Apply:</strong> For small models, drop <code>response_format: json_object</code> and rely on prompt instruction + parser robustness. Have the parser accept three shapes: bare array <code>[...]</code>, <code>{suggestions: [...]}</code> wrapper, and bare object <code>{...}</code> (wrap as <code>[obj]</code>). Set generous <code>max_tokens</code> because reasoning models burn tokens before emitting structured output.</p>
+
+<h3>Friendly errors when an endpoint returns HTML</h3>
+<p><strong>Context:</strong> HuggingFace router 401 returns a full HTML page (~10KB) as the response body. Dumping <code>text.slice(0, 400)</code> of that into the error message shows the user the start of <code>&lt;!DOCTYPE html&gt;</code> — useless.</p>
+<p><strong>Apply:</strong> detect HTML responses (<code>text.trim().startsWith("&lt;")</code>) and either truncate them aggressively or replace with a curated message that includes the actionable next step ("get a token at …").</p>
+
+<h3>Ollama 404 = model not installed; probe <code>/api/tags</code> for what IS available</h3>
+<p><strong>Context:</strong> Hardcoding <code>default_model: llama3.1:8b</code> breaks every install that doesn't have that specific tag. Ollama returns <code>{"error":"model 'X' not found"}</code> with HTTP 404.</p>
+<p><strong>Apply:</strong> On 404 with "not found" in body, GET <code>/api/tags</code>, list installed models, and surface that list plus the <code>ollama pull &lt;model&gt;</code> command. Don't pick one automatically — the user has reasons for what they have.</p>
+
+<h3>Anonymous public LLM endpoints break often — verify before shipping</h3>
+<p><strong>Context:</strong> by 2026-05, three "zero-config" providers we relied on had all broken in subtly different ways:</p>
+<ul>
+  <li><strong>Pollinations:</strong> legacy model id <code>openai-large</code> returned 404; anonymous tier dropped to one model <code>openai-fast</code> (gpt-oss-20b). GET <code>/models</code> lists what's currently exposed.</li>
+  <li><strong>DuckDuckGo AI Chat:</strong> replaced <code>x-vqd-4</code> token with a JS challenge token <code>x-vqd-hash-1</code> (base64-encoded obfuscated JS that must be executed in a browser-like env). Reverse-engineering this is not feasible from a Node fetch.</li>
+  <li><strong>HuggingFace router</strong> (<code>router.huggingface.co/v1/chat/completions</code>): now requires <code>Authorization: Bearer</code> for every request; anonymous calls return HTML 401.</li>
+</ul>
+<p><strong>Apply:</strong> before adding/keeping a public no-key provider, curl the exact endpoint with the exact payload you'll send. Don't trust docs — these endpoints change without notice. Auto-chain should only include providers verified within the last week or two. Mark broken providers as "selectable but not in auto chain" rather than removing them — they sometimes come back.</p>
+
+<h2 id="tooling-shell">Tooling / shell</h2>
+
+<h3><code>npm</code>/<code>npx</code>/<code>node</code> not on PATH; nvm shell functions don't survive a non-interactive Bash invocation</h3>
+<p><strong>Context:</strong> on this machine, the user's zsh defines <code>node</code>/<code>npm</code>/<code>npx</code> as lazy-loaded nvm functions. A non-interactive Bash invocation prints <code>command not found: _load_nvm</code>.</p>
+<p><strong>Apply:</strong> prepend <code>export PATH="$HOME/.nvm/versions/node/v22.17.1/bin:$PATH" &amp;&amp; </code> to every shell call that needs node. The <code>_load_nvm: command not found</code> line in stderr is harmless noise.</p>
+
+<h3><code>preLaunchTask 'npm: compile' terminated with exit code 127</code> in launch.json</h3>
+<p><strong>Context:</strong> VSCode's <code>type: "npm"</code> task resolves <code>npm</code> via the user's default shell PATH. With nvm, that resolves to a shell function which a non-login non-interactive shell can't expand → exit 127. Symptoms: F5 debug fails before the Extension Development Host even opens.</p>
+<p><strong>Apply:</strong> rewrite the task as <code>type: "shell"</code> calling <code>./node_modules/.bin/tsc</code> directly, and inject PATH via <code>options.env.PATH = "${env:HOME}/.nvm/versions/node/v22.17.1/bin:/usr/local/bin:/usr/bin:/bin"</code>. The local tsc binary still needs <code>node</code> on PATH because its shebang is <code>#!/usr/bin/env node</code>, so the PATH override is non-optional. <strong>Path drift:</strong> hardcoding a specific nvm version (e.g. <code>v22.17.1</code>) breaks the moment the user upgrades node and the old version is uninstalled — same exit-127 symptom, same fix (update the version in <code>tasks.json</code>). When the user reports exit 127 again, first <code>ls ~/.nvm/versions/node/</code> and reconcile the hardcoded path before assuming something else broke.</p>
+
+</body>
+</html>

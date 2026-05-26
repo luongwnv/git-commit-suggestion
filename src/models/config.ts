@@ -238,7 +238,9 @@ export type UiStringKey =
   | "suggestionCount"
   | "showEmoji"
   | "showBody"
+  | "showScope"
   | "suggestBtn"
+  | "stopBtn"
   | "useThisBtn"
   | "stageHint"
   | "generating"
@@ -263,7 +265,9 @@ const EN_STRINGS: Record<UiStringKey, string> = {
   suggestionCount: "Number of suggestions (1-8)",
   showEmoji: "Show emoji prefix",
   showBody: "Include explanation body",
+  showScope: "Show scope in subject",
   suggestBtn: "Suggest",
+  stopBtn: "Stop",
   useThisBtn: "Use this",
   stageHint: "Stage some files, then click",
   generating: "Generating suggestions…",
@@ -292,7 +296,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Số gợi ý (1-8)",
     showEmoji: "Hiển thị emoji ở đầu",
     showBody: "Kèm phần giải thích",
+    showScope: "Hiển thị scope trong tiêu đề",
     suggestBtn: "Gợi ý",
+    stopBtn: "Dừng",
     useThisBtn: "Dùng cái này",
     stageHint: "Stage một số file, rồi nhấn",
     generating: "Đang sinh gợi ý…",
@@ -318,7 +324,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "建议数量 (1-8)",
     showEmoji: "显示 emoji 前缀",
     showBody: "包含说明正文",
+    showScope: "在标题中显示作用域",
     suggestBtn: "生成建议",
+    stopBtn: "停止",
     useThisBtn: "使用此项",
     stageHint: "暂存一些文件，然后点击",
     generating: "正在生成建议…",
@@ -344,7 +352,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "提案数 (1-8)",
     showEmoji: "絵文字プレフィックスを表示",
     showBody: "説明本文を含める",
+    showScope: "件名にスコープを表示",
     suggestBtn: "提案する",
+    stopBtn: "停止",
     useThisBtn: "これを使う",
     stageHint: "ファイルをステージしてからクリック",
     generating: "提案を生成中…",
@@ -370,7 +380,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "제안 수 (1-8)",
     showEmoji: "이모지 접두사 표시",
     showBody: "설명 본문 포함",
+    showScope: "제목에 스코프 표시",
     suggestBtn: "제안",
+    stopBtn: "중지",
     useThisBtn: "사용하기",
     stageHint: "파일을 스테이지한 후 클릭",
     generating: "제안 생성 중…",
@@ -396,7 +408,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Número de sugerencias (1-8)",
     showEmoji: "Mostrar prefijo emoji",
     showBody: "Incluir cuerpo explicativo",
+    showScope: "Mostrar ámbito en el asunto",
     suggestBtn: "Sugerir",
+    stopBtn: "Detener",
     useThisBtn: "Usar este",
     stageHint: "Prepara archivos y haz clic",
     generating: "Generando sugerencias…",
@@ -422,7 +436,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Nombre de suggestions (1-8)",
     showEmoji: "Afficher le préfixe emoji",
     showBody: "Inclure le corps explicatif",
+    showScope: "Afficher la portée dans le sujet",
     suggestBtn: "Suggérer",
+    stopBtn: "Arrêter",
     useThisBtn: "Utiliser ceci",
     stageHint: "Préparez des fichiers et cliquez",
     generating: "Génération des suggestions…",
@@ -448,7 +464,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Anzahl der Vorschläge (1-8)",
     showEmoji: "Emoji-Präfix anzeigen",
     showBody: "Erklärenden Text einfügen",
+    showScope: "Scope im Betreff anzeigen",
     suggestBtn: "Vorschlagen",
+    stopBtn: "Stoppen",
     useThisBtn: "Diesen verwenden",
     stageHint: "Dateien stagen, dann klicken",
     generating: "Vorschläge werden generiert…",
@@ -474,7 +492,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Número de sugestões (1-8)",
     showEmoji: "Mostrar prefixo emoji",
     showBody: "Incluir corpo explicativo",
+    showScope: "Mostrar escopo no assunto",
     suggestBtn: "Sugerir",
+    stopBtn: "Parar",
     useThisBtn: "Usar este",
     stageHint: "Prepare arquivos e clique",
     generating: "Gerando sugestões…",
@@ -500,7 +520,9 @@ export const UI_STRINGS: Partial<Record<Language, Record<UiStringKey, string>>> 
     suggestionCount: "Количество предложений (1-8)",
     showEmoji: "Префикс с эмодзи",
     showBody: "Включить описание",
+    showScope: "Показывать scope в заголовке",
     suggestBtn: "Предложить",
+    stopBtn: "Стоп",
     useThisBtn: "Использовать",
     stageHint: "Подготовьте файлы и нажмите",
     generating: "Генерация предложений…",
@@ -536,6 +558,7 @@ export const ExtensionConfigSchema = z.object({
   ollamaBaseUrl: z.string(),
   showEmoji: z.boolean(),
   showBody: z.boolean(),
+  showScope: z.boolean(),
 });
 export type ExtensionConfig = z.infer<typeof ExtensionConfigSchema>;
 

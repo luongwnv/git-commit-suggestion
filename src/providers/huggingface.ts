@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 // HuggingFace router endpoint. As of 2026-05 this endpoint requires an
 // Authorization: Bearer token for every request — the anonymous tier was
@@ -39,8 +39,10 @@ export class HuggingFaceProvider extends Provider {
           Authorization: `Bearer ${args.apiKey}`,
         },
         body: JSON.stringify(body),
+        signal: args.signal,
       });
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(this.id, `Network error: ${(err as Error).message}`);
     }
 
@@ -55,9 +57,7 @@ export class HuggingFaceProvider extends Provider {
           resp.status,
         );
       }
-      // JSON error bodies survive truncation; HTML / very long bodies get cut.
-      const snippet = text.trim().startsWith("{") ? text.slice(0, 400) : text.slice(0, 120) + "…";
-      throw new ProviderError(this.id, `HTTP ${resp.status}: ${snippet}`, resp.status);
+      throw new ProviderError(this.id, `HTTP ${resp.status}: ${summarizeErrorBody(text)}`, resp.status);
     }
 
     const json = (await resp.json()) as {

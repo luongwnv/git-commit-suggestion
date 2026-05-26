@@ -26,7 +26,7 @@ docs/
   knowledge-base.html     # non-obvious facts; append as discovered
   provider-comparison.html
 .adn/
-  lessons.md              # tactical one-offs from this project
+  lessons.html            # tactical one-offs from this project
 ```
 
 ## Working rules
@@ -62,8 +62,6 @@ npm run compile
 # Inside the host: open any git repo, stage some files, click the lightbulb
 # icon in the Activity Bar.
 ```
-
-To package for the Marketplace, see [README.md](README.md#publishing).
 
 ## How it works
 

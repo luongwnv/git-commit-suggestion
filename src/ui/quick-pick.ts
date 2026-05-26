@@ -18,10 +18,11 @@ export async function pickSuggestion(
   placeholder: string,
   showEmoji: boolean,
   showBody: boolean,
+  showScope: boolean,
 ): Promise<{ suggestion: Suggestion; finalMessage: string } | undefined> {
   const items: PickItem[] = suggestions.map((s) => {
     const emoji = TYPE_EMOJI[s.type] ?? "•";
-    const scope = s.scope ? `(${s.scope})` : "";
+    const scope = showScope && s.scope ? `(${s.scope})` : "";
     const labelEn = `${emoji} ${s.type}${scope}: ${s.subject_en || s.subject_vi}`;
     const detailVi = language === "en" ? "" : s.subject_vi;
     return {
@@ -29,7 +30,7 @@ export async function pickSuggestion(
       description: detailVi || undefined,
       detail: s.body_en || s.body_vi || undefined,
       suggestion: s,
-      finalMessage: formatCommitMessage(s, { language, showEmoji, showBody }),
+      finalMessage: formatCommitMessage(s, { language, showEmoji, showBody, showScope }),
     };
   });
 

@@ -1,4 +1,4 @@
-import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base";
+import { GenerateArgs, Provider, ProviderError, ProviderResponse, summarizeErrorBody } from "./base";
 
 // Ollama runs locally. `args.model` is whatever the user picked (default comes
 // from providers.yml, but every install has a different model set). When the
@@ -42,8 +42,10 @@ export class OllamaProvider extends Provider {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: args.signal,
       });
     } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
       throw new ProviderError(
         this.id,
         `Network error: ${(err as Error).message}. Is the local service running at ${baseUrl}?`,
@@ -67,7 +69,7 @@ export class OllamaProvider extends Provider {
           resp.status,
         );
       }
-      throw new ProviderError(this.id, `HTTP ${resp.status}: ${text.slice(0, 400)}`, resp.status);
+      throw new ProviderError(this.id, `HTTP ${resp.status}: ${summarizeErrorBody(text)}`, resp.status);
     }
 
     const json = (await resp.json()) as { message?: { content?: string } };
