@@ -121,13 +121,16 @@ async function runSuggest(
   }
 }
 
+// Push the latest settings + hasUserKey to the view without wiping any
+// suggestions that may already be on screen. Called after every toggle so
+// e.g. flipping "show emoji" re-styles the cards instead of clearing them.
 async function refreshIdleState(
   secrets: vscode.SecretStorage,
   view: CommitSuggestionViewProvider,
 ): Promise<void> {
   const config = readConfig();
   const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
-  view.setIdle(settingsFromConfig(config), hasUserKey);
+  view.refreshSettings(settingsFromConfig(config), hasUserKey);
 }
 
 async function applySuggestion(

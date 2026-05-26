@@ -15,7 +15,7 @@ import { GenerateArgs, Provider, ProviderError, ProviderResponse } from "./base"
 export class PollinationsProvider extends Provider {
   override async generate(args: GenerateArgs): Promise<ProviderResponse> {
     const url = "https://text.pollinations.ai/openai";
-    const body = {
+    const body: Record<string, unknown> = {
       model: args.model || "openai-fast",
       messages: [
         { role: "system", content: args.systemPrompt },
@@ -27,7 +27,11 @@ export class PollinationsProvider extends Provider {
       // requested array of suggestions into one bare object, breaking the
       // parser. Without the constraint the model emits a clean array; if it
       // occasionally returns a single object the parser wraps it for us.
-      max_tokens: 2500,
+      max_tokens: 4000,
+      // gpt-oss-20b is a reasoning model — at default effort it burns most
+      // of its token budget on internal reasoning and emits an empty
+      // `content` field. Force minimum effort so tokens go to output.
+      reasoning_effort: "low",
       seed: Math.floor(Math.random() * 1e9),
     };
 
@@ -48,15 +52,30 @@ export class PollinationsProvider extends Provider {
     }
 
     // Pollinations sometimes returns plain text, sometimes the full OpenAI
-    // schema. Handle both.
+    // schema. Handle both. gpt-oss-20b additionally has a `reasoning` field
+    // in `message` — when reasoning_effort overshoots and content comes
+    // back empty, the JSON we want is sometimes embedded inside reasoning
+    // instead. Mine it as a fallback before failing.
     const contentType = resp.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      const json = (await resp.json()) as { choices?: { message?: { content?: string } }[] };
-      const content = json.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new ProviderError(this.id, `Empty response: ${JSON.stringify(json).slice(0, 200)}`);
-      }
-      return { rawText: content };
+      const json = (await resp.json()) as {
+        choices?: { message?: { content?: string; reasoning?: string } }[];
+      };
+      const msg = json.choices?.[0]?.message;
+      const content = msg?.content;
+      if (content && content.trim()) return { rawText: content };
+
+      // Fallback: extract JSON array or object from the reasoning trace.
+      const reasoning = msg?.reasoning ?? "";
+      const arrayMatch = reasoning.match(/\[[\s\S]*\]/);
+      if (arrayMatch) return { rawText: arrayMatch[0] };
+      const objectMatch = reasoning.match(/\{[\s\S]*\}/);
+      if (objectMatch) return { rawText: objectMatch[0] };
+
+      throw new ProviderError(
+        this.id,
+        `Empty content and no JSON in reasoning. Response: ${JSON.stringify(json).slice(0, 300)}`,
+      );
     }
     const text = await resp.text();
     if (!text.trim()) throw new ProviderError(this.id, "Empty response body");

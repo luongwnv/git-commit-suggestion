@@ -55,12 +55,14 @@ interface ViewState {
 // by the orchestrator + config) is unchanged. Labels are plain text — no
 // emoji, no parenthetical descriptors — so every option looks equivalent and
 // there's no implied hierarchy between "free" and "BYOK" providers.
+// Ollama removed from the dropdown per user request — model installs vary
+// per machine and the friendly error path (probe /api/tags) was still too
+// much friction. Provider class + config entry kept in case it's added back.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "pollinations", label: "Whale" },
   { id: "duckduckgo", label: "Platypus" },
   { id: "huggingface", label: "Polar Bear" },
-  { id: "ollama", label: "Axolotl" },
   { id: "g4f", label: "Dinosaur" },
   { id: "mistral", label: "Mistral" },
   { id: "openai", label: "OpenAI" },
@@ -190,6 +192,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     this.post();
   }
 
+  // Update just the settings + hasUserKey while preserving any in-flight
+  // suggestions. Used when a UI toggle changes config — we don't want
+  // toggling "show emoji" to wipe the cards the user already has.
+  refreshSettings(settings: DisplaySettings, hasUserKey: boolean): void {
+    this.state = { ...this.state, settings, hasUserKey };
+    this.post();
+  }
+
   setSuggestions(
     suggestions: Suggestion[],
     providerLabel: string,
@@ -236,9 +246,17 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
         break;
       case "use": {
         const s = this.suggestionsRef.current[msg.index];
-        const serialized = this.state.suggestions[msg.index];
-        if (!s || !serialized) return;
-        await this.cb.onUse(s, serialized.finalMessage);
+        if (!s) return;
+        // Recompute the final message at click time using the live settings
+        // — the serialized copy in state.suggestions was formatted when the
+        // suggestions arrived, so it doesn't reflect later toggles to
+        // showEmoji / showBody / language.
+        const final = formatCommitMessage(s, {
+          language: this.state.settings.language,
+          showEmoji: this.state.settings.showEmoji,
+          showBody: this.state.settings.showBody,
+        });
+        await this.cb.onUse(s, final);
         break;
       }
       case "paste-key":
@@ -298,8 +316,8 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   body {
     font-family: var(--vscode-font-family);
     /* var(--vscode-font-size) is ~13px which reads too small against the rest
-       of the VSCode chrome inside an Activity Bar webview. Bump to 14px. */
-    font-size: 14px;
+       of the VSCode chrome inside an Activity Bar webview. Bump to 15px. */
+    font-size: 15px;
     color: var(--vscode-foreground);
     background: var(--vscode-sideBar-background);
     padding: 8px 10px;
@@ -576,22 +594,26 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       vscode.postMessage({ type: "paste-key" }));
   }
 
-  function renderCard(s, idx, language) {
+  function renderCard(s, idx, settings) {
+    const language = settings.language;
     const scope = s.scope ? "(" + escapeHtml(s.scope) + ")" : "";
     const showEn = language !== "vi";
     const showVi = language === "vi" || language === "bilingual";
     const isOther = language !== "en" && language !== "vi" && language !== "bilingual";
     const primarySubject = isOther ? (s.subjectEn || s.subjectVi) : (showEn ? s.subjectEn : "");
     const primaryBody = isOther ? (s.bodyEn || s.bodyVi) : (showEn ? s.bodyEn : "");
+    const emojiPrefix = settings.showEmoji ? s.emoji + " " : "";
     const headerLine = primarySubject
-      ? '<div class="subject-en">' + s.emoji + " " + escapeHtml(s.type) + scope + ": " + escapeHtml(primarySubject) + "</div>"
+      ? '<div class="subject-en">' + emojiPrefix + escapeHtml(s.type) + scope + ": " + escapeHtml(primarySubject) + "</div>"
       : "";
     const subjectVi = !isOther && showVi && s.subjectVi
       ? '<div class="subject-vi">' + escapeHtml(s.subjectVi) + "</div>"
       : "";
     const bodyParts = [];
-    if (primaryBody) bodyParts.push(escapeHtml(primaryBody));
-    if (!isOther && showVi && s.bodyVi && s.bodyVi !== primaryBody) bodyParts.push(escapeHtml(s.bodyVi));
+    if (settings.showBody && primaryBody) bodyParts.push(escapeHtml(primaryBody));
+    if (settings.showBody && !isOther && showVi && s.bodyVi && s.bodyVi !== primaryBody) {
+      bodyParts.push(escapeHtml(s.bodyVi));
+    }
     const body = bodyParts.length
       ? '<div class="body">' + bodyParts.join("\\n\\n") + "</div>"
       : "";
@@ -637,7 +659,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       return;
     }
     contentEl.innerHTML = state.suggestions
-      .map((s, i) => renderCard(s, i, state.settings.language))
+      .map((s, i) => renderCard(s, i, state.settings))
       .join("");
     document.querySelectorAll(".use-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
