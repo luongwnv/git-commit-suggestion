@@ -1,17 +1,102 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
-  <!-- Outer phone case -->
-  <path d="M371.093,0H149.227c-18.773,0-34.133,15.36-34.133,34.133v443.733c0,18.773,15.36,34.133,34.133,34.133h221.867c18.773,0,34.133-15.36,34.133-34.133V34.133C405.227,15.36,389.867,0,371.093,0z M388.16,477.867c0,9.387-7.68,17.067-17.067,17.067H149.227c-9.387,0-17.067-7.68-17.067-17.067V34.133c0-9.387,7.68-17.067,17.067-17.067h221.867c9.387,0,17.067,7.68,17.067,17.067V477.867z"/>
-  <!-- Screen frame -->
-  <path d="M115.093,51.2v392.533h290.133V51.2H115.093z M388.16,426.667h-256v-358.4h256V426.667z"/>
-  <!-- Speaker + camera dots (top bezel) -->
-  <path d="M294.293,25.6h-42.667c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h42.667c5.12,0,8.533-3.413,8.533-8.533C302.827,29.013,299.413,25.6,294.293,25.6z"/>
-  <path d="M226.027,25.6h-8.533c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h8.533c5.12,0,8.533-3.413,8.533-8.533C234.56,29.013,231.147,25.6,226.027,25.6z"/>
-  <!-- Home button (bottom bezel) -->
-  <path d="M260.16,452.267c-9.387,0-17.067,7.68-17.067,17.067s7.68,17.067,17.067,17.067s17.067-7.68,17.067-17.067S269.547,452.267,260.16,452.267z"/>
-  <!-- Tap ripple ring (outer) — communicates "press here" -->
-  <path d="M260.16,180.267c-41.6,0-75.733,34.133-75.733,75.733c0,41.6,34.133,75.733,75.733,75.733s75.733-34.133,75.733-75.733C335.893,214.4,301.76,180.267,260.16,180.267z M260.16,314.667c-32.213,0-58.667-26.453-58.667-58.667s26.453-58.667,58.667-58.667s58.667,26.453,58.667,58.667S292.373,314.667,260.16,314.667z"/>
-  <!-- Tap ripple ring (inner) -->
-  <path d="M260.16,213.333c-23.467,0-42.667,19.2-42.667,42.667s19.2,42.667,42.667,42.667s42.667-19.2,42.667-42.667S283.627,213.333,260.16,213.333z M260.16,281.6c-14.08,0-25.6-11.52-25.6-25.6c0-14.08,11.52-25.6,25.6-25.6s25.6,11.52,25.6,25.6C285.76,270.08,274.24,281.6,260.16,281.6z"/>
-  <!-- Finger pad — solid circle at the tap point -->
-  <circle cx="260.16" cy="256" r="14"/>
+<!--
+  Extension icon — index finger pressing a git commit node.
+
+  Composition (viewBox 0 0 256 256):
+    - Lower half: a git branch graph (3 commit circles connected by a vertical
+      line, with one side branch on the right merging back). This is the
+      canonical "git log graph" silhouette.
+    - Upper half: a hand silhouette with the index finger extended down,
+      tapping the top commit. The fingertip touches the commit so the user
+      reads "press to commit".
+    - Two ripple arcs above the tap point indicate the action of pressing.
+
+  Single-color (currentColor) so it themes correctly in any VSCode color
+  scheme. No outer rectangle frame.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor">
+
+  <!-- Git branch graph: main line + commits + side branch -->
+  <!-- Main vertical line -->
+  <rect x="121" y="140" width="6" height="92" rx="3"/>
+  <!-- Side branch line (curves out then back in) -->
+  <path d="M124 178 q26 4 26 28 v18 q0 16 -16 16" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+  <!-- Commit node: top (the one being tapped) -->
+  <circle cx="124" cy="148" r="12"/>
+  <!-- Commit node: middle main -->
+  <circle cx="124" cy="196" r="10"/>
+  <!-- Commit node: side branch tip -->
+  <circle cx="150" cy="210" r="9"/>
+  <!-- Commit node: bottom main -->
+  <circle cx="124" cy="232" r="10"/>
+
+  <!-- Tap ripples above the top commit, showing pressing motion -->
+  <path d="M104 130 q20 -10 40 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+  <path d="M96 118 q28 -14 56 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+
+  <!--
+    Hand with index finger pointing down, in the upper half.
+    Anatomy (top to bottom):
+      - Forearm/wrist: rounded rectangle entering from top-right corner
+      - Palm: rounded square
+      - Folded fingers (3 stubs on the left side of the palm — middle, ring, pinky tucked)
+      - Thumb: short curve coming out top-left
+      - Index finger: extended straight down to the commit
+    All as a single filled path for visual unity.
+  -->
+  <path d="
+    M 175 8
+    L 220 8
+    Q 234 8 234 22
+    L 234 62
+    Q 234 76 220 76
+    L 196 76
+    Q 188 76 184 82
+    L 184 92
+    Q 184 100 178 102
+    Q 172 100 172 92
+    L 172 84
+    Q 172 78 168 78
+    Q 162 78 162 86
+    L 162 96
+    Q 162 104 156 106
+    Q 150 104 150 96
+    L 150 88
+    Q 150 82 146 82
+    Q 140 82 140 90
+    L 140 102
+    Q 140 110 134 112
+    Q 128 110 128 102
+    L 128 96
+    Q 128 88 124 88
+    Q 118 88 118 96
+    L 118 134
+    L 130 134
+    L 130 96
+    Q 130 92 132 92
+    Q 134 92 134 96
+    L 134 76
+    Q 134 66 144 64
+    L 162 60
+    Q 168 58 168 52
+    L 168 22
+    Q 168 8 175 8
+    Z
+  " />
+
+  <!--
+    Index finger: a tapered rectangle pointing down from the palm to commit.
+    Slightly offset to align with the top commit circle centre at (124, 148).
+  -->
+  <path d="
+    M 118 92
+    Q 118 86 124 86
+    Q 130 86 130 92
+    L 130 138
+    Q 130 142 124 142
+    Q 118 142 118 138
+    Z
+  " />
+
+  <!-- Fingertip emphasis: a slightly darker oval over the tip and commit -->
+  <ellipse cx="124" cy="142" rx="7" ry="5" opacity="0.75"/>
 </svg>
