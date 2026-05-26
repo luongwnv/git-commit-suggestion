@@ -84,9 +84,9 @@
         },
         "gitCommitSuggestion.language": {
           "type": "string",
-          "enum": ["bilingual", "en", "vi"],
+          "enum": ["bilingual", "en", "vi", "zh", "ja", "ko", "es", "fr", "de", "pt", "ru"],
           "default": "bilingual",
-          "description": "Output language for suggestions. 'bilingual' shows English subject + Vietnamese gloss side-by-side."
+          "description": "Output language for suggestions. 'bilingual' shows English subject + Vietnamese gloss side-by-side; other values produce a single-language commit message."
         },
         "gitCommitSuggestion.suggestionCount": {
           "type": "number",
@@ -114,6 +114,16 @@
           "type": "string",
           "default": "http://localhost:11434",
           "description": "Ollama server base URL (only used when provider=ollama)."
+        },
+        "gitCommitSuggestion.showEmoji": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prepend a type emoji (✨🐛📝…) to the rendered commit message."
+        },
+        "gitCommitSuggestion.showBody": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include the explanation body in the commit message. Disable for subject-only commits."
         }
       }
     }

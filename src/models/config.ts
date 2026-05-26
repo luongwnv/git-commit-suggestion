@@ -14,8 +14,36 @@ export const ProviderIdSchema = z.enum([
 ]);
 export type ProviderId = z.infer<typeof ProviderIdSchema>;
 
-export const LanguageSchema = z.enum(["bilingual", "en", "vi"]);
+export const LanguageSchema = z.enum([
+  "bilingual",
+  "en",
+  "vi",
+  "zh",
+  "ja",
+  "ko",
+  "es",
+  "fr",
+  "de",
+  "pt",
+  "ru",
+]);
 export type Language = z.infer<typeof LanguageSchema>;
+
+// Human-readable labels for each language, used by the prompt and the UI.
+// `bilingual` is special — the model fills both English and Vietnamese.
+export const LANGUAGE_LABELS: Record<Language, string> = {
+  bilingual: "English + Vietnamese (side by side)",
+  en: "English",
+  vi: "Tiếng Việt",
+  zh: "中文 (Chinese)",
+  ja: "日本語 (Japanese)",
+  ko: "한국어 (Korean)",
+  es: "Español (Spanish)",
+  fr: "Français (French)",
+  de: "Deutsch (German)",
+  pt: "Português (Portuguese)",
+  ru: "Русский (Russian)",
+};
 
 export const ExtensionConfigSchema = z.object({
   provider: ProviderIdSchema,
@@ -26,6 +54,8 @@ export const ExtensionConfigSchema = z.object({
   enableUnofficialProviders: z.boolean(),
   customPromptPath: z.string(),
   ollamaBaseUrl: z.string(),
+  showEmoji: z.boolean(),
+  showBody: z.boolean(),
 });
 export type ExtensionConfig = z.infer<typeof ExtensionConfigSchema>;
 

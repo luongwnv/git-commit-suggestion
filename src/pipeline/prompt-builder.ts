@@ -1,11 +1,18 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
-import { CommitType, CommitTypeSchema, PromptsConfig, PromptsConfigSchema } from "../models/config";
+import {
+  CommitType,
+  CommitTypeSchema,
+  LANGUAGE_LABELS,
+  Language,
+  PromptsConfig,
+  PromptsConfigSchema,
+} from "../models/config";
 
 export interface PromptInputs {
   count: number;
-  language: "bilingual" | "en" | "vi";
+  language: Language;
   diff: string;
   commitTypes: CommitType[];
 }
@@ -27,6 +34,7 @@ export function buildPrompt(prompts: PromptsConfig, inputs: PromptInputs): Built
   const vars = {
     count: String(inputs.count),
     language: inputs.language,
+    language_label: LANGUAGE_LABELS[inputs.language],
     diff: inputs.diff,
     types_block: renderTypesBlock(inputs.commitTypes),
   };

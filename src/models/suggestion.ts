@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Language } from "./config";
 
 export const SuggestionSchema = z.object({
   type: z.string().min(1),
@@ -13,23 +14,47 @@ export type Suggestion = z.infer<typeof SuggestionSchema>;
 
 export const SuggestionArraySchema = z.array(SuggestionSchema).min(1);
 
-export function formatCommitMessage(
-  s: Suggestion,
-  language: "bilingual" | "en" | "vi",
-): string {
+const TYPE_EMOJI: Record<string, string> = {
+  feat: "✨", fix: "🐛", docs: "📝", style: "💄", refactor: "♻️",
+  perf: "⚡", test: "✅", build: "📦", ci: "👷", chore: "🔧", revert: "⏪",
+};
+
+export interface FormatOptions {
+  language: Language;
+  showEmoji: boolean;
+  showBody: boolean;
+}
+
+export function formatCommitMessage(s: Suggestion, opts: FormatOptions): string {
+  const { language, showEmoji, showBody } = opts;
+  const emojiPrefix = showEmoji && TYPE_EMOJI[s.type] ? `${TYPE_EMOJI[s.type]} ` : "";
   const scope = s.scope ? `(${s.scope})` : "";
-  if (language === "vi") {
-    const header = `${s.type}${scope}: ${s.subject_vi || s.subject_en}`;
-    return s.body_vi ? `${header}\n\n${s.body_vi}` : header;
+
+  // For non-English/Vietnamese languages the prompt writes the requested
+  // language into both subject_en and subject_vi — prefer subject_en, fall
+  // back to subject_vi so we still produce something if the model only
+  // populated one field.
+  const pickPrimary = (): { subject: string; body: string } => {
+    if (language === "vi") {
+      return { subject: s.subject_vi || s.subject_en, body: s.body_vi || s.body_en };
+    }
+    if (language === "en" || language === "bilingual") {
+      return { subject: s.subject_en || s.subject_vi, body: s.body_en || s.body_vi };
+    }
+    return { subject: s.subject_en || s.subject_vi, body: s.body_en || s.body_vi };
+  };
+
+  if (language === "bilingual") {
+    const header = `${emojiPrefix}${s.type}${scope}: ${s.subject_en || s.subject_vi}`;
+    const parts: string[] = [header];
+    if (showBody && s.body_en) parts.push("", s.body_en);
+    if (s.subject_vi) parts.push("", `VI: ${s.subject_vi}`);
+    if (showBody && s.body_vi) parts.push("", s.body_vi);
+    return parts.join("\n");
   }
-  if (language === "en") {
-    const header = `${s.type}${scope}: ${s.subject_en || s.subject_vi}`;
-    return s.body_en ? `${header}\n\n${s.body_en}` : header;
-  }
-  const header = `${s.type}${scope}: ${s.subject_en}`;
-  const parts: string[] = [header];
-  if (s.body_en) parts.push("", s.body_en);
-  if (s.subject_vi) parts.push("", `VI: ${s.subject_vi}`);
-  if (s.body_vi) parts.push("", s.body_vi);
-  return parts.join("\n");
+
+  const { subject, body } = pickPrimary();
+  const header = `${emojiPrefix}${s.type}${scope}: ${subject}`;
+  if (showBody && body) return `${header}\n\n${body}`;
+  return header;
 }

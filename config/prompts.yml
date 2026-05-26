@@ -2,10 +2,11 @@
 # src/pipeline/prompt-builder.ts using {{var}} syntax.
 #
 # Variables available:
-#   {{count}}           number of suggestions requested
-#   {{language}}        'bilingual' | 'en' | 'vi'
-#   {{types_block}}     rendered list of allowed commit types (from commit-types.yml)
-#   {{diff}}            the staged git diff (already truncated)
+#   {{count}}            number of suggestions requested
+#   {{language}}         enum value: bilingual | en | vi | zh | ja | ko | es | fr | de | pt | ru
+#   {{language_label}}   human-readable language description (e.g. "Tiếng Việt")
+#   {{types_block}}      rendered list of allowed commit types (from commit-types.yml)
+#   {{diff}}             the staged git diff (already truncated)
 #
 # The model is required to return JSON only. The parser strips markdown fences
 # if the model wraps the JSON in ```json ... ```.
@@ -19,7 +20,9 @@ system: |
   - `type` MUST be one of the allowed types listed below.
   - `scope` is optional; use an empty string if not applicable. Lowercase, no spaces.
   - `subject_en` and `subject_vi` are imperative-mood one-liners under 72 chars.
-  - `subject_vi` is a natural Vietnamese rendering, not a literal word-for-word translation.
+  - When the requested language is neither English nor Vietnamese, write BOTH
+    `subject_en` and `subject_vi` in the requested language. The post-processor
+    treats `subject_en` as the primary single-language output.
   - `body_en` and `body_vi` are 1-3 short sentences explaining the WHY. Empty string if trivial.
   - Never invent changes not visible in the diff.
   - Prefer specific scopes derived from changed file paths.
@@ -32,10 +35,12 @@ user: |
   The suggestions should differ in framing (e.g. different scopes, or feat vs refactor
   when both are defensible) so the user has meaningful choices.
 
-  Language mode: {{language}}
-  - 'bilingual' → fill both subject_en/body_en and subject_vi/body_vi.
-  - 'en' → fill English fields; leave Vietnamese fields empty strings.
-  - 'vi' → fill Vietnamese fields; leave English fields empty strings.
+  Output language: {{language_label}} (enum value: {{language}})
+  - If `bilingual`: fill English in subject_en/body_en, Vietnamese in subject_vi/body_vi.
+  - If `en` / `vi`: fill that language in the matching field; leave the other empty.
+  - For any other language (zh, ja, ko, es, fr, de, pt, ru): write the message in
+    that language and put it in BOTH subject_en and subject_vi (and body_en/body_vi).
+    The wrapper code will pick the right field.
 
   Staged diff:
   ```diff

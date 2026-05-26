@@ -16,6 +16,8 @@ export async function pickSuggestion(
   suggestions: Suggestion[],
   language: Language,
   placeholder: string,
+  showEmoji: boolean,
+  showBody: boolean,
 ): Promise<{ suggestion: Suggestion; finalMessage: string } | undefined> {
   const items: PickItem[] = suggestions.map((s) => {
     const emoji = TYPE_EMOJI[s.type] ?? "•";
@@ -27,7 +29,7 @@ export async function pickSuggestion(
       description: detailVi || undefined,
       detail: language === "bilingual" && s.body_en ? s.body_en : s.body_vi || s.body_en || undefined,
       suggestion: s,
-      finalMessage: formatCommitMessage(s, language),
+      finalMessage: formatCommitMessage(s, { language, showEmoji, showBody }),
     };
   });
 

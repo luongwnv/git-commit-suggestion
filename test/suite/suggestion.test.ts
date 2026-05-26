@@ -12,28 +12,81 @@ const sample: Suggestion = {
 
 describe("formatCommitMessage", () => {
   it("renders English-only", () => {
-    const msg = formatCommitMessage(sample, "en");
-    assert.ok(msg.startsWith("feat(auth): add login endpoint"));
+    const msg = formatCommitMessage(sample, {
+      language: "en",
+      showEmoji: false,
+      showBody: true,
+    });
+    assert.ok(msg.startsWith("feat(auth): add login endpoint"), msg);
     assert.ok(msg.includes("Wires up"));
     assert.ok(!msg.includes("thêm"));
   });
 
   it("renders Vietnamese-only", () => {
-    const msg = formatCommitMessage(sample, "vi");
-    assert.ok(msg.startsWith("feat(auth): thêm endpoint đăng nhập"));
+    const msg = formatCommitMessage(sample, {
+      language: "vi",
+      showEmoji: false,
+      showBody: true,
+    });
+    assert.ok(msg.startsWith("feat(auth): thêm endpoint đăng nhập"), msg);
     assert.ok(msg.includes("bcrypt"));
     assert.ok(!msg.includes("Wires up"));
   });
 
   it("renders bilingual with both languages", () => {
-    const msg = formatCommitMessage(sample, "bilingual");
+    const msg = formatCommitMessage(sample, {
+      language: "bilingual",
+      showEmoji: false,
+      showBody: true,
+    });
     assert.ok(msg.includes("add login endpoint"));
     assert.ok(msg.includes("VI: thêm endpoint đăng nhập"));
   });
 
   it("handles empty scope", () => {
     const s = { ...sample, scope: "" };
-    const msg = formatCommitMessage(s, "en");
+    const msg = formatCommitMessage(s, {
+      language: "en",
+      showEmoji: false,
+      showBody: true,
+    });
     assert.ok(msg.startsWith("feat: add login endpoint"));
+  });
+
+  it("prepends emoji when showEmoji=true", () => {
+    const msg = formatCommitMessage(sample, {
+      language: "en",
+      showEmoji: true,
+      showBody: false,
+    });
+    assert.ok(msg.startsWith("✨ feat(auth)"), msg);
+  });
+
+  it("omits body when showBody=false", () => {
+    const msg = formatCommitMessage(sample, {
+      language: "en",
+      showEmoji: false,
+      showBody: false,
+    });
+    assert.ok(!msg.includes("Wires up"));
+    assert.strictEqual(msg.split("\n").length, 1);
+  });
+
+  it("uses subject_en for non-English/Vietnamese languages", () => {
+    // The prompt puts the requested language into both en and vi fields;
+    // formatter prefers subject_en.
+    const zh: Suggestion = {
+      ...sample,
+      subject_en: "添加登录端点",
+      subject_vi: "添加登录端点",
+      body_en: "",
+      body_vi: "",
+    };
+    const msg = formatCommitMessage(zh, {
+      language: "zh",
+      showEmoji: false,
+      showBody: false,
+    });
+    assert.ok(msg.includes("添加登录端点"));
   });
 });

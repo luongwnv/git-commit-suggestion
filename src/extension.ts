@@ -1,11 +1,17 @@
 import * as vscode from "vscode";
-import { ExtensionConfig, ExtensionConfigSchema, ProviderId, ProviderIdSchema } from "./models/config";
+import {
+  ExtensionConfig,
+  ExtensionConfigSchema,
+  Language,
+  ProviderId,
+  ProviderIdSchema,
+} from "./models/config";
 import { Suggestion, formatCommitMessage } from "./models/suggestion";
 import { suggestCommits } from "./pipeline/orchestrator";
 import { pickSuggestion } from "./ui/quick-pick";
 import { writeToScmInput } from "./ui/scm-writer";
 import { createStatusBarItem } from "./ui/status-bar";
-import { CommitSuggestionViewProvider } from "./ui/webview-view";
+import { CommitSuggestionViewProvider, DisplaySettings } from "./ui/webview-view";
 import { t } from "./utils/i18n";
 import { log } from "./utils/logger";
 
@@ -22,13 +28,31 @@ function readConfig(): ExtensionConfig {
     enableUnofficialProviders: c.get("enableUnofficialProviders"),
     customPromptPath: c.get("customPromptPath", ""),
     ollamaBaseUrl: c.get("ollamaBaseUrl"),
+    showEmoji: c.get("showEmoji"),
+    showBody: c.get("showBody"),
   });
+}
+
+function settingsFromConfig(config: ExtensionConfig): DisplaySettings {
+  return {
+    providerId: config.provider,
+    language: config.language,
+    suggestionCount: config.suggestionCount,
+    showEmoji: config.showEmoji,
+    showBody: config.showBody,
+  };
 }
 
 function getWorkspaceRoot(): string | undefined {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return undefined;
   return folders[0].uri.fsPath;
+}
+
+async function updateGlobal<T>(key: string, value: T): Promise<void> {
+  await vscode.workspace
+    .getConfiguration("gitCommitSuggestion")
+    .update(key, value, vscode.ConfigurationTarget.Global);
 }
 
 // Shared between the webview view and the command-palette entry. The webview
@@ -47,6 +71,7 @@ async function runSuggest(
     return;
   }
   const config = readConfig();
+  const settings = settingsFromConfig(config);
 
   if (config.provider === "g4f" && !config.enableUnofficialProviders) {
     const choice = await vscode.window.showWarningMessage(
@@ -56,13 +81,11 @@ async function runSuggest(
       t("cancel"),
     );
     if (choice !== t("enableUnofficial")) return;
-    await vscode.workspace
-      .getConfiguration("gitCommitSuggestion")
-      .update("enableUnofficialProviders", true, vscode.ConfigurationTarget.Global);
+    await updateGlobal("enableUnofficialProviders", true);
   }
 
   const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
-  view.setLoading(config.provider, config.language, hasUserKey);
+  view.setLoading(settings, hasUserKey);
 
   try {
     const result = await suggestCommits({
@@ -73,20 +96,24 @@ async function runSuggest(
       log,
     });
     suggestionsRef.current = result.suggestions;
-    view.setSuggestions(result.suggestions, result.providerUsed, config.language, config.provider, hasUserKey);
+    view.setSuggestions(result.suggestions, result.providerUsed, settings, hasUserKey);
     log(`Got ${result.suggestions.length} suggestions from ${result.providerUsed}`);
 
-    // When invoked via command palette (no visible view), still surface a
-    // QuickPick so the user can act without opening the sidebar.
     if (source === "command") {
-      const picked = await pickSuggestion(result.suggestions, config.language, t("pickSuggestion"));
+      const picked = await pickSuggestion(
+        result.suggestions,
+        config.language,
+        t("pickSuggestion"),
+        config.showEmoji,
+        config.showBody,
+      );
       if (!picked) return;
       await applySuggestion(cwd, picked.suggestion, picked.finalMessage);
     }
   } catch (err) {
     const msg = (err as Error).message;
     log(`ERROR: ${msg}`);
-    view.setError(msg, config.language, config.provider, hasUserKey);
+    view.setError(msg, settings, hasUserKey);
     vscode.window.showErrorMessage(`Git Commit Suggestion: ${msg}`);
   }
 }
@@ -97,7 +124,7 @@ async function refreshIdleState(
 ): Promise<void> {
   const config = readConfig();
   const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
-  view.setIdle(config.provider, config.language, hasUserKey);
+  view.setIdle(settingsFromConfig(config), hasUserKey);
 }
 
 async function applySuggestion(
@@ -115,7 +142,7 @@ async function applySuggestion(
 
 async function pickProviderId(): Promise<ProviderId | undefined> {
   const picked = await vscode.window.showQuickPick(
-    ["mistral", "openai", "anthropic", "groq", "ollama", "g4f"],
+    ["mistral", "openai", "anthropic", "groq", "ollama", "huggingface", "g4f"],
     { placeHolder: t("pickProvider") },
   );
   if (!picked) return undefined;
@@ -146,47 +173,59 @@ export function activate(context: vscode.ExtensionContext): void {
   log(`Activated at ${context.extensionPath}`);
 
   const suggestionsRef: { current: Suggestion[] } = { current: [] };
-
   const viewRef: { current?: CommitSuggestionViewProvider } = {};
-  const onSuggest = (): Promise<void> =>
-    runSuggest(context.extensionPath, context.secrets, viewRef.current!, suggestionsRef, "webview");
-  const onUse = async (suggestion: Suggestion, finalMessage: string): Promise<void> => {
-    const cwd = getWorkspaceRoot();
-    if (!cwd) return;
-    await applySuggestion(cwd, suggestion, finalMessage);
-  };
-  const onPasteKey = async (): Promise<void> => {
-    const config = readConfig();
-    const key = await vscode.window.showInputBox({
-      prompt: t("enterApiKey", config.provider),
-      password: true,
-      ignoreFocusOut: true,
-    });
-    if (!key) return;
-    await context.secrets.store(SECRET_KEY(config.provider), key);
-    vscode.window.showInformationMessage(t("keySaved", config.provider));
+
+  const refresh = async (): Promise<void> => {
     if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
   };
-  const onOpenMistralConsole = async (): Promise<void> => {
-    await vscode.env.openExternal(vscode.Uri.parse("https://console.mistral.ai/api-keys"));
-  };
-  const onSetProvider = async (providerId: string): Promise<void> => {
-    await vscode.workspace
-      .getConfiguration("gitCommitSuggestion")
-      .update("provider", providerId, vscode.ConfigurationTarget.Global);
-    if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
-  };
-  const onReady = async (): Promise<void> => {
-    if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
-  };
+
   const view = new CommitSuggestionViewProvider(
     context.extensionUri,
-    onSuggest,
-    onUse,
-    onPasteKey,
-    onOpenMistralConsole,
-    onSetProvider,
-    onReady,
+    {
+      onSuggest: () =>
+        runSuggest(context.extensionPath, context.secrets, viewRef.current!, suggestionsRef, "webview"),
+      onUse: async (_suggestion, finalMessage) => {
+        const cwd = getWorkspaceRoot();
+        if (!cwd) return;
+        await applySuggestion(cwd, _suggestion, finalMessage);
+      },
+      onPasteKey: async () => {
+        const config = readConfig();
+        const key = await vscode.window.showInputBox({
+          prompt: t("enterApiKey", config.provider),
+          password: true,
+          ignoreFocusOut: true,
+        });
+        if (!key) return;
+        await context.secrets.store(SECRET_KEY(config.provider), key);
+        vscode.window.showInformationMessage(t("keySaved", config.provider));
+        await refresh();
+      },
+      onOpenMistralConsole: async () => {
+        await vscode.env.openExternal(vscode.Uri.parse("https://console.mistral.ai/api-keys"));
+      },
+      onSetProvider: async (providerId) => {
+        await updateGlobal("provider", providerId);
+        await refresh();
+      },
+      onSetLanguage: async (language: Language) => {
+        await updateGlobal("language", language);
+        await refresh();
+      },
+      onSetSuggestionCount: async (count) => {
+        await updateGlobal("suggestionCount", count);
+        await refresh();
+      },
+      onSetShowEmoji: async (value) => {
+        await updateGlobal("showEmoji", value);
+        await refresh();
+      },
+      onSetShowBody: async (value) => {
+        await updateGlobal("showBody", value);
+        await refresh();
+      },
+      onReady: refresh,
+    },
     suggestionsRef,
   );
   viewRef.current = view;
@@ -208,5 +247,4 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
-// Used by tests of formatCommitMessage indirectly via models/suggestion.
 export { formatCommitMessage };

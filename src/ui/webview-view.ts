@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ExtensionConfig } from "../models/config";
+import { LANGUAGE_LABELS, Language } from "../models/config";
 import { formatCommitMessage, Suggestion } from "../models/suggestion";
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -8,35 +8,40 @@ const TYPE_EMOJI: Record<string, string> = {
 };
 
 // Messages from webview → extension. Kept minimal: the UI is presentation-only,
-// the extension owns LLM calls and SCM writes.
+// the extension owns LLM calls, SCM writes, and config persistence.
 type FromWebview =
   | { type: "ready" }
   | { type: "suggest" }
   | { type: "use"; index: number }
   | { type: "paste-key" }
   | { type: "open-mistral-console" }
-  | { type: "set-provider"; providerId: string };
+  | { type: "set-provider"; providerId: string }
+  | { type: "set-language"; language: Language }
+  | { type: "set-suggestion-count"; count: number }
+  | { type: "set-show-emoji"; value: boolean }
+  | { type: "set-show-body"; value: boolean };
 
-// Messages from extension → webview.
-type ToWebview =
-  | { type: "state"; state: ViewState };
+type ToWebview = { type: "state"; state: ViewState };
+
+// Settings the user can flip from the inline panel. Kept as a single object
+// so adding a new option means changing one struct, one renderer, one wiring.
+export interface DisplaySettings {
+  providerId: string;
+  language: Language;
+  suggestionCount: number;
+  showEmoji: boolean;
+  showBody: boolean;
+}
 
 interface ViewState {
   status: "idle" | "loading" | "error" | "ready";
   errorMessage?: string;
   providerLabel?: string;
-  language: "bilingual" | "en" | "vi";
-  suggestions: SerializedSuggestion[];
-  // Onboarding hint shown when the active provider is mistral and the user
-  // hasn't supplied their own key. The extension is using the bundled
-  // throwaway default — which is rate-limited and shared. Encourage BYOK.
+  settings: DisplaySettings;
   hasUserKey: boolean;
-  providerId: string;
+  suggestions: SerializedSuggestion[];
 }
 
-// Provider catalogue for the gear-icon settings dropdown. Mirrored from the
-// enum in models/config.ts. Centralised here so the webview can render
-// human-friendly labels without re-reading providers.yml.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "auto", label: "Auto (try all free providers)" },
   { id: "pollinations", label: "Pollinations (free, no key)" },
@@ -50,6 +55,10 @@ const PROVIDER_OPTIONS: { id: string; label: string }[] = [
   { id: "g4f", label: "g4f (unofficial)" },
 ];
 
+const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
+  Object.keys(LANGUAGE_LABELS) as Language[]
+).map((id) => ({ id, label: LANGUAGE_LABELS[id] }));
+
 interface SerializedSuggestion {
   emoji: string;
   type: string;
@@ -61,26 +70,41 @@ interface SerializedSuggestion {
   finalMessage: string;
 }
 
+export interface ViewCallbacks {
+  onSuggest: () => Promise<void>;
+  onUse: (suggestion: Suggestion, finalMessage: string) => Promise<void>;
+  onPasteKey: () => Promise<void>;
+  onOpenMistralConsole: () => Promise<void>;
+  onSetProvider: (providerId: string) => Promise<void>;
+  onSetLanguage: (language: Language) => Promise<void>;
+  onSetSuggestionCount: (count: number) => Promise<void>;
+  onSetShowEmoji: (value: boolean) => Promise<void>;
+  onSetShowBody: (value: boolean) => Promise<void>;
+  onReady: () => Promise<void>;
+}
+
+const DEFAULT_SETTINGS: DisplaySettings = {
+  providerId: "auto",
+  language: "bilingual",
+  suggestionCount: 4,
+  showEmoji: true,
+  showBody: true,
+};
+
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
 
   private view?: vscode.WebviewView;
   private state: ViewState = {
     status: "idle",
-    language: "bilingual",
+    settings: { ...DEFAULT_SETTINGS },
     suggestions: [],
     hasUserKey: false,
-    providerId: "auto",
   };
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly onSuggest: () => Promise<void>,
-    private readonly onUse: (suggestion: Suggestion, finalMessage: string) => Promise<void>,
-    private readonly onPasteKey: () => Promise<void>,
-    private readonly onOpenMistralConsole: () => Promise<void>,
-    private readonly onSetProvider: (providerId: string) => Promise<void>,
-    private readonly onReady: () => Promise<void>,
+    private readonly cb: ViewCallbacks,
     private readonly suggestionsRef: { current: Suggestion[] },
   ) {}
 
@@ -94,42 +118,34 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     view.webview.onDidReceiveMessage((msg: FromWebview) => this.handleMessage(msg));
   }
 
-  setLoading(providerId: string, language: ExtensionConfig["language"], hasUserKey: boolean): void {
+  setLoading(settings: DisplaySettings, hasUserKey: boolean): void {
     this.state = {
       status: "loading",
-      providerLabel: providerId,
-      language,
-      suggestions: [],
+      providerLabel: settings.providerId,
+      settings,
       hasUserKey,
-      providerId,
+      suggestions: [],
     };
     this.post();
   }
 
-  setError(
-    errorMessage: string,
-    language: ExtensionConfig["language"],
-    providerId: string,
-    hasUserKey: boolean,
-  ): void {
+  setError(errorMessage: string, settings: DisplaySettings, hasUserKey: boolean): void {
     this.state = {
       status: "error",
       errorMessage,
-      language,
-      suggestions: [],
+      settings,
       hasUserKey,
-      providerId,
+      suggestions: [],
     };
     this.post();
   }
 
-  setIdle(providerId: string, language: ExtensionConfig["language"], hasUserKey: boolean): void {
+  setIdle(settings: DisplaySettings, hasUserKey: boolean): void {
     this.state = {
       status: "idle",
-      language,
-      suggestions: [],
+      settings,
       hasUserKey,
-      providerId,
+      suggestions: [],
     };
     this.post();
   }
@@ -137,16 +153,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   setSuggestions(
     suggestions: Suggestion[],
     providerLabel: string,
-    language: ExtensionConfig["language"],
-    providerId: string,
+    settings: DisplaySettings,
     hasUserKey: boolean,
   ): void {
     this.state = {
       status: "ready",
       providerLabel,
-      language,
+      settings,
       hasUserKey,
-      providerId,
       suggestions: suggestions.map((s) => ({
         emoji: TYPE_EMOJI[s.type] ?? "•",
         type: s.type,
@@ -155,7 +169,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
         subjectVi: s.subject_vi,
         bodyEn: s.body_en,
         bodyVi: s.body_vi,
-        finalMessage: formatCommitMessage(s, language),
+        finalMessage: formatCommitMessage(s, {
+          language: settings.language,
+          showEmoji: settings.showEmoji,
+          showBody: settings.showBody,
+        }),
       })),
     };
     this.post();
@@ -170,30 +188,39 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   private async handleMessage(msg: FromWebview): Promise<void> {
     switch (msg.type) {
       case "ready":
-        // Webview-side script has registered listeners; pull live VSCode
-        // settings + secret status before pushing the first state so the
-        // dropdown reflects reality, not the constructor default.
-        await this.onReady();
+        await this.cb.onReady();
         this.post();
         break;
       case "suggest":
-        await this.onSuggest();
+        await this.cb.onSuggest();
         break;
       case "use": {
         const s = this.suggestionsRef.current[msg.index];
         const serialized = this.state.suggestions[msg.index];
         if (!s || !serialized) return;
-        await this.onUse(s, serialized.finalMessage);
+        await this.cb.onUse(s, serialized.finalMessage);
         break;
       }
       case "paste-key":
-        await this.onPasteKey();
+        await this.cb.onPasteKey();
         break;
       case "open-mistral-console":
-        await this.onOpenMistralConsole();
+        await this.cb.onOpenMistralConsole();
         break;
       case "set-provider":
-        await this.onSetProvider(msg.providerId);
+        await this.cb.onSetProvider(msg.providerId);
+        break;
+      case "set-language":
+        await this.cb.onSetLanguage(msg.language);
+        break;
+      case "set-suggestion-count":
+        await this.cb.onSetSuggestionCount(msg.count);
+        break;
+      case "set-show-emoji":
+        await this.cb.onSetShowEmoji(msg.value);
+        break;
+      case "set-show-body":
+        await this.cb.onSetShowBody(msg.value);
         break;
     }
   }
@@ -206,8 +233,13 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       `script-src 'nonce-${nonce}'`,
     ].join("; ");
 
-    // The HTML is intentionally self-contained — no external assets. Easier to
-    // ship via Marketplace and keeps the CSP airtight.
+    const providerOptionsHtml = PROVIDER_OPTIONS.map(
+      (p) => `<option value="${p.id}">${escapeServerSide(p.label)}</option>`,
+    ).join("");
+    const languageOptionsHtml = LANGUAGE_OPTIONS.map(
+      (l) => `<option value="${l.id}">${escapeServerSide(l.label)}</option>`,
+    ).join("");
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -227,7 +259,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     align-items: center;
     justify-content: space-between;
     margin-bottom: 10px;
-    gap: 8px;
+    gap: 6px;
   }
   .provider {
     color: var(--vscode-descriptionForeground);
@@ -254,6 +286,52 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     color: var(--vscode-button-secondaryForeground);
   }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .icon-btn {
+    background: transparent;
+    color: var(--vscode-icon-foreground, var(--vscode-foreground));
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 1em;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
+  .settings {
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: var(--vscode-editor-background);
+  }
+  .settings.hidden { display: none; }
+  .settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .settings-row:last-child { margin-bottom: 0; }
+  .settings-row label {
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+  }
+  .settings-row select,
+  .settings-row input[type="number"] {
+    background: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    border-radius: 2px;
+  }
+  .settings-row.inline {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+  .settings-row.inline label { color: var(--vscode-foreground); font-size: 1em; }
   .card {
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -262,10 +340,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     background: var(--vscode-editor-background);
   }
   .card:hover { border-color: var(--vscode-focusBorder); }
-  .subject-en {
-    font-weight: 600;
-    word-break: break-word;
-  }
+  .subject-en { font-weight: 600; word-break: break-word; }
   .subject-vi {
     color: var(--vscode-descriptionForeground);
     font-style: italic;
@@ -303,45 +378,6 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   .banner-title { font-weight: 600; margin-bottom: 4px; }
   .banner-actions { display: flex; gap: 6px; margin-top: 6px; }
   .banner-actions button { font-size: 0.95em; padding: 3px 8px; }
-  .icon-btn {
-    background: transparent;
-    color: var(--vscode-icon-foreground, var(--vscode-foreground));
-    border: none;
-    padding: 4px 6px;
-    cursor: pointer;
-    border-radius: 2px;
-    font-size: 1em;
-    line-height: 1;
-  }
-  .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
-  .settings {
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    padding: 8px 10px;
-    margin-bottom: 10px;
-    background: var(--vscode-editor-background);
-  }
-  .settings.hidden { display: none; }
-  .settings-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-  .settings-row:last-child { margin-bottom: 0; }
-  .settings-row label {
-    font-size: 0.85em;
-    color: var(--vscode-descriptionForeground);
-  }
-  .settings-row select {
-    background: var(--vscode-dropdown-background);
-    color: var(--vscode-dropdown-foreground);
-    border: 1px solid var(--vscode-dropdown-border);
-    padding: 4px 6px;
-    font-family: inherit;
-    font-size: inherit;
-    border-radius: 2px;
-  }
   .spinner {
     display: inline-block;
     width: 12px;
@@ -365,11 +401,23 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   <div class="settings hidden" id="settings">
     <div class="settings-row">
       <label for="provider-select">Provider</label>
-      <select id="provider-select">
-        ${PROVIDER_OPTIONS.map(
-          (p) => `<option value="${p.id}">${escapeServerSide(p.label)}</option>`,
-        ).join("")}
-      </select>
+      <select id="provider-select">${providerOptionsHtml}</select>
+    </div>
+    <div class="settings-row">
+      <label for="language-select">Output language</label>
+      <select id="language-select">${languageOptionsHtml}</select>
+    </div>
+    <div class="settings-row">
+      <label for="count-input">Number of suggestions (1-8)</label>
+      <input type="number" id="count-input" min="1" max="8" step="1">
+    </div>
+    <div class="settings-row inline">
+      <input type="checkbox" id="emoji-toggle">
+      <label for="emoji-toggle">Show emoji prefix (✨ feat: …)</label>
+    </div>
+    <div class="settings-row inline">
+      <input type="checkbox" id="body-toggle">
+      <label for="body-toggle">Include explanation body</label>
     </div>
   </div>
   <div id="banner"></div>
@@ -377,25 +425,43 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
-  const contentEl = document.getElementById("content");
-  const providerEl = document.getElementById("provider");
-  const bannerEl = document.getElementById("banner");
-  const suggestBtn = document.getElementById("suggest-btn");
-  const settingsBtn = document.getElementById("settings-btn");
-  const settingsEl = document.getElementById("settings");
-  const providerSelect = document.getElementById("provider-select");
+  const $ = (id) => document.getElementById(id);
+  const contentEl = $("content");
+  const providerEl = $("provider");
+  const bannerEl = $("banner");
+  const suggestBtn = $("suggest-btn");
+  const settingsBtn = $("settings-btn");
+  const settingsEl = $("settings");
+  const providerSelect = $("provider-select");
+  const languageSelect = $("language-select");
+  const countInput = $("count-input");
+  const emojiToggle = $("emoji-toggle");
+  const bodyToggle = $("body-toggle");
 
   suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
   settingsBtn.addEventListener("click", () => settingsEl.classList.toggle("hidden"));
-  providerSelect.addEventListener("change", (e) => {
-    vscode.postMessage({ type: "set-provider", providerId: e.target.value });
+  providerSelect.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-provider", providerId: e.target.value }));
+  languageSelect.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-language", language: e.target.value }));
+  countInput.addEventListener("change", (e) => {
+    const n = Math.max(1, Math.min(8, parseInt(e.target.value, 10) || 4));
+    e.target.value = String(n);
+    vscode.postMessage({ type: "set-suggestion-count", count: n });
   });
+  emojiToggle.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-show-emoji", value: e.target.checked }));
+  bodyToggle.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-show-body", value: e.target.checked }));
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
 
   function renderBanner(state) {
-    // Show the upgrade banner only when the active provider is the bundled
-    // shared mistral key — that is when key burnout actually hurts. Auto
-    // mode and zero-config providers (pollinations/ddg/hf) don't need it.
-    if (state.providerId !== "mistral" || state.hasUserKey) {
+    if (state.settings.providerId !== "mistral" || state.hasUserKey) {
       bannerEl.innerHTML = "";
       return;
     }
@@ -409,48 +475,51 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       + '<button class="secondary" id="open-console">Get free key</button>'
       + '<button id="paste-key">Paste my key</button>'
       + "</div></div>";
-    document.getElementById("open-console").addEventListener("click", () =>
+    $("open-console").addEventListener("click", () =>
       vscode.postMessage({ type: "open-mistral-console" }));
-    document.getElementById("paste-key").addEventListener("click", () =>
+    $("paste-key").addEventListener("click", () =>
       vscode.postMessage({ type: "paste-key" }));
-  }
-
-  function escapeHtml(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[c]));
   }
 
   function renderCard(s, idx, language) {
     const scope = s.scope ? "(" + escapeHtml(s.scope) + ")" : "";
     const showEn = language !== "vi";
-    const showVi = language !== "en";
-    const subjectEn = showEn && s.subjectEn
-      ? '<div class="subject-en">' + s.emoji + " " + escapeHtml(s.type) + scope + ": " + escapeHtml(s.subjectEn) + "</div>"
+    const showVi = language === "vi" || language === "bilingual";
+    const isOther = language !== "en" && language !== "vi" && language !== "bilingual";
+    const primarySubject = isOther ? (s.subjectEn || s.subjectVi) : (showEn ? s.subjectEn : "");
+    const primaryBody = isOther ? (s.bodyEn || s.bodyVi) : (showEn ? s.bodyEn : "");
+    const headerLine = primarySubject
+      ? '<div class="subject-en">' + s.emoji + " " + escapeHtml(s.type) + scope + ": " + escapeHtml(primarySubject) + "</div>"
       : "";
-    const subjectVi = showVi && s.subjectVi
+    const subjectVi = !isOther && showVi && s.subjectVi
       ? '<div class="subject-vi">' + escapeHtml(s.subjectVi) + "</div>"
       : "";
     const bodyParts = [];
-    if (showEn && s.bodyEn) bodyParts.push(escapeHtml(s.bodyEn));
-    if (showVi && s.bodyVi) bodyParts.push(escapeHtml(s.bodyVi));
+    if (primaryBody) bodyParts.push(escapeHtml(primaryBody));
+    if (!isOther && showVi && s.bodyVi && s.bodyVi !== primaryBody) bodyParts.push(escapeHtml(s.bodyVi));
     const body = bodyParts.length
       ? '<div class="body">' + bodyParts.join("\\n\\n") + "</div>"
       : "";
     return '<div class="card">'
-      + subjectEn + subjectVi + body
+      + headerLine + subjectVi + body
       + '<div class="actions"><button data-idx="' + idx + '" class="use-btn">Use this</button></div>'
       + "</div>";
+  }
+
+  function syncSettings(settings) {
+    if (providerSelect.value !== settings.providerId) providerSelect.value = settings.providerId;
+    if (languageSelect.value !== settings.language) languageSelect.value = settings.language;
+    if (parseInt(countInput.value, 10) !== settings.suggestionCount) {
+      countInput.value = String(settings.suggestionCount);
+    }
+    if (emojiToggle.checked !== settings.showEmoji) emojiToggle.checked = settings.showEmoji;
+    if (bodyToggle.checked !== settings.showBody) bodyToggle.checked = settings.showBody;
   }
 
   function render(state) {
     providerEl.textContent = state.providerLabel ? "Provider: " + state.providerLabel : "";
     suggestBtn.disabled = state.status === "loading";
-    // Keep the dropdown in sync with the active provider but don't refire
-    // the change event (which would loop us back into set-provider).
-    if (providerSelect.value !== state.providerId) {
-      providerSelect.value = state.providerId;
-    }
+    syncSettings(state.settings);
     renderBanner(state);
     if (state.status === "loading") {
       contentEl.innerHTML = '<div class="loading"><span class="spinner"></span>Generating suggestions…</div>';
@@ -465,7 +534,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       return;
     }
     contentEl.innerHTML = state.suggestions
-      .map((s, i) => renderCard(s, i, state.language))
+      .map((s, i) => renderCard(s, i, state.settings.language))
       .join("");
     document.querySelectorAll(".use-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -487,8 +556,6 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   }
 }
 
-// Used at HTML-template-build time (extension host side). Webview-side
-// strings get their own escapeHtml() in the inline script.
 function escapeServerSide(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
