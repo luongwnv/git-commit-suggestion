@@ -10,3 +10,10 @@ tsconfig.json
 .env
 .env.example
 node_modules/**
+.claude/**
+.adn/**
+CLAUDE.md
+CONTRIBUTING.md
+package-lock.json
+**/.DS_Store
+Screenshot*.png
