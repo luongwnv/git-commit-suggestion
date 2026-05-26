@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import { ExtensionConfig, ExtensionConfigSchema, ProviderId, ProviderIdSchema } from "./models/config";
+import { Suggestion, formatCommitMessage } from "./models/suggestion";
 import { suggestCommits } from "./pipeline/orchestrator";
 import { pickSuggestion } from "./ui/quick-pick";
 import { writeToScmInput } from "./ui/scm-writer";
 import { createStatusBarItem } from "./ui/status-bar";
+import { CommitSuggestionViewProvider } from "./ui/webview-view";
 import { t } from "./utils/i18n";
 import { log } from "./utils/logger";
 
@@ -29,7 +31,16 @@ function getWorkspaceRoot(): string | undefined {
   return folders[0].uri.fsPath;
 }
 
-async function commandSuggest(extensionRoot: string, secrets: vscode.SecretStorage): Promise<void> {
+// Shared between the webview view and the command-palette entry. The webview
+// updates its UI via the provider; the command palette falls back to a
+// QuickPick when the view isn't open.
+async function runSuggest(
+  extensionRoot: string,
+  secrets: vscode.SecretStorage,
+  view: CommitSuggestionViewProvider,
+  suggestionsRef: { current: Suggestion[] },
+  source: "webview" | "command",
+): Promise<void> {
   const cwd = getWorkspaceRoot();
   if (!cwd) {
     vscode.window.showErrorMessage("Open a folder first.");
@@ -50,33 +61,46 @@ async function commandSuggest(extensionRoot: string, secrets: vscode.SecretStora
       .update("enableUnofficialProviders", true, vscode.ConfigurationTarget.Global);
   }
 
-  await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: t("suggesting"), cancellable: false },
-    async () => {
-      try {
-        const result = await suggestCommits({
-          extensionRoot,
-          cwd,
-          config,
-          getApiKey: (p) => secrets.get(SECRET_KEY(p)),
-          log,
-        });
-        log(`Got ${result.suggestions.length} suggestions from ${result.providerUsed}`);
-        const picked = await pickSuggestion(result.suggestions, config.language, t("pickSuggestion"));
-        if (!picked) return;
-        const ok = await writeToScmInput(cwd, picked.finalMessage);
-        if (ok) vscode.window.showInformationMessage(t("written"));
-        else {
-          await vscode.env.clipboard.writeText(picked.finalMessage);
-          vscode.window.showWarningMessage("SCM input not found; copied to clipboard.");
-        }
-      } catch (err) {
-        const msg = (err as Error).message;
-        log(`ERROR: ${msg}`);
-        vscode.window.showErrorMessage(`Git Commit Suggestion: ${msg}`);
-      }
-    },
-  );
+  view.setLoading(config.provider, config.language);
+
+  try {
+    const result = await suggestCommits({
+      extensionRoot,
+      cwd,
+      config,
+      getApiKey: (p) => secrets.get(SECRET_KEY(p)),
+      log,
+    });
+    suggestionsRef.current = result.suggestions;
+    view.setSuggestions(result.suggestions, result.providerUsed, config.language);
+    log(`Got ${result.suggestions.length} suggestions from ${result.providerUsed}`);
+
+    // When invoked via command palette (no visible view), still surface a
+    // QuickPick so the user can act without opening the sidebar.
+    if (source === "command") {
+      const picked = await pickSuggestion(result.suggestions, config.language, t("pickSuggestion"));
+      if (!picked) return;
+      await applySuggestion(cwd, picked.suggestion, picked.finalMessage);
+    }
+  } catch (err) {
+    const msg = (err as Error).message;
+    log(`ERROR: ${msg}`);
+    view.setError(msg, config.language);
+    vscode.window.showErrorMessage(`Git Commit Suggestion: ${msg}`);
+  }
+}
+
+async function applySuggestion(
+  cwd: string,
+  _suggestion: Suggestion,
+  finalMessage: string,
+): Promise<void> {
+  const ok = await writeToScmInput(cwd, finalMessage);
+  if (ok) vscode.window.showInformationMessage(t("written"));
+  else {
+    await vscode.env.clipboard.writeText(finalMessage);
+    vscode.window.showWarningMessage("SCM input not found; copied to clipboard.");
+  }
 }
 
 async function pickProviderId(): Promise<ProviderId | undefined> {
@@ -110,10 +134,30 @@ async function commandClearApiKey(secrets: vscode.SecretStorage): Promise<void> 
 
 export function activate(context: vscode.ExtensionContext): void {
   log(`Activated at ${context.extensionPath}`);
+
+  const suggestionsRef: { current: Suggestion[] } = { current: [] };
+
+  const viewRef: { current?: CommitSuggestionViewProvider } = {};
+  const onSuggest = (): Promise<void> =>
+    runSuggest(context.extensionPath, context.secrets, viewRef.current!, suggestionsRef, "webview");
+  const onUse = async (suggestion: Suggestion, finalMessage: string): Promise<void> => {
+    const cwd = getWorkspaceRoot();
+    if (!cwd) return;
+    await applySuggestion(cwd, suggestion, finalMessage);
+  };
+  const view = new CommitSuggestionViewProvider(
+    context.extensionUri,
+    onSuggest,
+    onUse,
+    suggestionsRef,
+  );
+  viewRef.current = view;
+
   context.subscriptions.push(createStatusBarItem());
   context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(CommitSuggestionViewProvider.viewId, view),
     vscode.commands.registerCommand("gitCommitSuggestion.suggest", () =>
-      commandSuggest(context.extensionPath, context.secrets),
+      runSuggest(context.extensionPath, context.secrets, view, suggestionsRef, "command"),
     ),
     vscode.commands.registerCommand("gitCommitSuggestion.setApiKey", () =>
       commandSetApiKey(context.secrets),
@@ -125,3 +169,6 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {}
+
+// Used by tests of formatCommitMessage indirectly via models/suggestion.
+export { formatCommitMessage };

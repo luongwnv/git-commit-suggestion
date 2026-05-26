@@ -103,6 +103,16 @@
   <li>Cold activation is ~50ms; safe to do at startup.</li>
 </ul>
 
+<h3>Webview view (sidebar GUI)</h3>
+<ul>
+  <li>Registered as a <code>WebviewView</code> under the <code>scm</code> container (see <code>"views.scm"</code> in <code>package.json</code>). This puts it inside the existing Source Control sidebar — same view that already hosts the Changes list and the commit input box. No separate Activity Bar icon is added.</li>
+  <li>The HTML is rendered inline by <code>CommitSuggestionViewProvider.renderHtml</code> with a strict CSP: <code>default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-...'</code>. No external assets, no <code>require</code>/<code>import</code> inside the webview — VS Code's webview sandbox disallows both.</li>
+  <li>Communication is one-way per direction: extension → webview uses <code>view.webview.postMessage({ type: "state", state })</code>; webview → extension uses <code>vscode.postMessage(...)</code> via the <code>acquireVsCodeApi()</code> handle. There is no shared state and no synchronous bridge — every UI update is a full state replacement.</li>
+  <li>The webview holds NO suggestions of its own. The extension owns the canonical <code>Suggestion[]</code> in a <code>suggestionsRef</code> closure; on <code>{ type: "use", index }</code> it looks up by index. This avoids round-tripping the diff/LLM-output back into the webview's JSON-serialized world.</li>
+  <li>Styling uses VS Code's theme CSS variables (<code>--vscode-foreground</code>, <code>--vscode-button-background</code>, etc.) so the view automatically matches Light/Dark/High-Contrast themes — never hard-code colours.</li>
+  <li>The view is initialized lazily: <code>resolveWebviewView</code> only fires when the user expands the view. The first <code>{ type: "ready" }</code> message from the webview triggers an initial <code>state</code> post so the saved state (if any) is restored.</li>
+</ul>
+
 <h2 id="layout">Repo layout principle</h2>
 <p>Layout mirrors <code>index-crawl</code>:</p>
 <ul>

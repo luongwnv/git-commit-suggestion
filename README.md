@@ -4,6 +4,8 @@ VSCode extension that reads the **staged git diff** and asks an LLM for **3-5 Co
 
 UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-plugin); architecture modeled on `index-crawl` (declarative `config/*.yml`, separated `models / providers / pipeline / ui / utils`, knowledge-base doc).
 
+A dedicated **Commit Suggestions** webview lives inside the Source Control sidebar — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
+
 > **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
 ## Layout
@@ -17,9 +19,9 @@ src/
   models/                 # zod schemas: Suggestion, ParsedDiff, ExtensionConfig
   providers/              # one class per LLM provider + a registry
   pipeline/               # diff-collector → prompt-builder → orchestrator → parser
-  ui/                     # quick-pick, scm-writer, status-bar
+  ui/                     # webview-view (sidebar GUI), quick-pick (palette fallback), scm-writer, status-bar
   utils/                  # git child_process, OutputChannel logger, i18n
-  extension.ts            # activation, command registration
+  extension.ts            # activation, command registration, view provider wiring
 docs/
   knowledge-base.html     # non-obvious facts; append as discovered
   provider-comparison.html
@@ -72,13 +74,15 @@ API keys are stored in **VSCode SecretStorage**, not settings — they never app
 
 ## How it works
 
-1. User triggers `gitCommitSuggestion.suggest` (status bar, command palette, or SCM title bar).
-2. [src/pipeline/diff-collector.ts](src/pipeline/diff-collector.ts) runs `git diff --staged --no-color -U3`, splits per file, truncates to `maxDiffTokens` keeping small files whole.
-3. [src/pipeline/prompt-builder.ts](src/pipeline/prompt-builder.ts) loads templates from `config/prompts.yml` and substitutes `{{count}}`, `{{language}}`, `{{types_block}}`, `{{diff}}`.
-4. [src/pipeline/orchestrator.ts](src/pipeline/orchestrator.ts) picks the provider (per setting), calls it. If `g4f` fails, it falls back to `mistral` automatically.
-5. [src/pipeline/parser.ts](src/pipeline/parser.ts) strips markdown fences, extracts the JSON array, validates with zod, normalizes type/scope.
-6. [src/ui/quick-pick.ts](src/ui/quick-pick.ts) renders one row per suggestion, EN label + VI description + body in detail.
-7. [src/ui/scm-writer.ts](src/ui/scm-writer.ts) finds the Git extension's `repository.inputBox` and writes the message. User reviews and presses Commit normally.
+1. User opens the **Commit Suggestions** view in the Source Control sidebar (or runs `gitCommitSuggestion.suggest` from the palette/status bar).
+2. The webview ([src/ui/webview-view.ts](src/ui/webview-view.ts)) sends a `suggest` postMessage to the extension host on button click.
+3. [src/pipeline/diff-collector.ts](src/pipeline/diff-collector.ts) runs `git diff --staged --no-color -U3`, splits per file, truncates to `maxDiffTokens` keeping small files whole.
+4. [src/pipeline/prompt-builder.ts](src/pipeline/prompt-builder.ts) loads templates from `config/prompts.yml` and substitutes `{{count}}`, `{{language}}`, `{{types_block}}`, `{{diff}}`.
+5. [src/pipeline/orchestrator.ts](src/pipeline/orchestrator.ts) picks the provider (per setting), calls it. If `g4f` fails, it falls back to `mistral` automatically.
+6. [src/pipeline/parser.ts](src/pipeline/parser.ts) strips markdown fences, extracts the JSON array, validates with zod, normalizes type/scope.
+7. Extension posts `{ type: "state", state: { suggestions, ... } }` back to the webview, which re-renders cards (EN subject + VI gloss + body, *Use this* button).
+8. Clicking *Use this* sends `{ type: "use", index }` back; the extension calls [src/ui/scm-writer.ts](src/ui/scm-writer.ts) to drop the formatted message into the Git extension's `repository.inputBox`. User reviews and presses Commit normally.
+9. The command-palette entrypoint additionally falls back to a `vscode.window.showQuickPick` so it works even if the sidebar view isn't visible.
 
 ## Common gotchas
 

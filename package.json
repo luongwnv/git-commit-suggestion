@@ -40,6 +40,24 @@
           "group": "navigation",
           "when": "scmProvider == git"
         }
+      ],
+      "view/title": [
+        {
+          "command": "gitCommitSuggestion.suggest",
+          "when": "view == gitCommitSuggestion.view",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "scm": [
+        {
+          "type": "webview",
+          "id": "gitCommitSuggestion.view",
+          "name": "Commit Suggestions",
+          "icon": "$(lightbulb)",
+          "when": "scmProvider == git"
+        }
       ]
     },
     "configuration": {
