@@ -4,9 +4,9 @@ VSCode extension that reads the **staged git diff** and asks an LLM for **3-5 Co
 
 UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-plugin); architecture modeled on `index-crawl` (declarative `config/*.yml`, separated `models / providers / pipeline / ui / utils`, knowledge-base doc).
 
-A dedicated **Commit Suggestions** webview lives inside the Source Control sidebar — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
+A dedicated **Commit Suggestions** webview lives in its own Activity Bar container — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
 
-First-time users can run it immediately with a bundled shared Mistral key (rate-limited, may be revoked) — a warning banner in the sidebar prompts them to paste their own free key from `console.mistral.ai/api-keys` for reliable use. User key always wins over the bundled default.
+The default `auto` provider tries three no-key providers (Pollinations, DuckDuckGo, HuggingFace) in turn. Zero setup required to start. Providers that need an API key (Mistral, OpenAI, Anthropic, Groq) are BYOK — paste your key via the ⚙️ panel or the command palette.
 
 > **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
@@ -33,18 +33,18 @@ docs/
 
 | Provider | Type | Free? | Key required? | Setting | Status |
 |----------|------|-------|---------------|---------|--------|
-| **auto** | Chain | ✅ | No | `provider: auto` | **default** — tries pollinations → duckduckgo → huggingface → mistral default |
+| **auto** | Chain | ✅ | No | `provider: auto` | **default** — tries pollinations → duckduckgo → huggingface |
 | pollinations | Public gateway | ✅ free | No | `provider: pollinations` | zero-config, GPT-4o-class on default model |
 | duckduckgo | DDG AI Chat | ✅ free | No | `provider: duckduckgo` | reverse-engineered, vqd handshake, GPT-4o-mini / Claude Haiku / Llama / Mistral / o3-mini |
 | huggingface | HF router | ✅ free (BYOK bumps quota) | No (optional) | `provider: huggingface` | OpenAI-compatible, Qwen 2.5 7B default |
-| mistral | Official API | ✅ free tier | Bundled default + BYOK | `provider: mistral` | supported |
+| mistral | Official API | ✅ free tier | Yes (BYOK) | `provider: mistral` | supported |
 | openai | Official API | ❌ BYOK paid | Yes | `provider: openai` | supported |
 | anthropic | Official API | ❌ BYOK paid | Yes | `provider: anthropic` | supported |
 | groq | Official API | ✅ free tier | Yes | `provider: groq` | supported |
 | ollama | Local | ✅ free | No | `provider: ollama` | supported |
 | g4f | Reverse proxy | ⚠️ unofficial | No | `provider: g4f` + `enableUnofficialProviders: true` | opt-in, no SLA, ToS-violating |
 
-The default `auto` chain means **the extension works with zero setup** — no API key needed. The first available no-key provider wins. The bundled Mistral default is the last fallback.
+The default `auto` chain means **the extension works with zero setup** — no API key needed. The first no-key provider that responds wins.
 
 ## Quick start
 

@@ -1,21 +1,20 @@
-// Hardcoded fallback API keys. Used when the user has not configured a
-// per-provider key via SecretStorage.
+// No hardcoded API keys are shipped. Every provider that requires a key
+// is BYOK — user supplies via the "Set API Key for Provider" command or
+// the inline "Paste my key" button.
 //
-// WARNING: Anything in this file is shipped in the .vsix and trivially
-// extractable. Do not put production or revenue-generating keys here.
-// Use only throwaway / shared-quota keys you are willing to see ban-hammered
-// the moment the extension gets traction.
+// The free, no-key providers (pollinations, duckduckgo, huggingface,
+// ollama, g4f) require no key at all.
+//
+// This file is intentionally kept as a tiny indirection so the orchestrator
+// can stay agnostic about whether or not a default exists. If you ever
+// want to ship a throwaway key again, return it from defaultKeyFor.
 
 import { ProviderId } from "../models/config";
 
-const DEFAULT_KEYS: Partial<Record<ProviderId, string>> = {
-  mistral: "CSnnmuIno3tSydFozR72Cukc1TCwTIvH",
-};
-
-export function defaultKeyFor(provider: ProviderId): string | undefined {
-  return DEFAULT_KEYS[provider];
+export function defaultKeyFor(_provider: ProviderId): string | undefined {
+  return undefined;
 }
 
-export function hasDefaultKey(provider: ProviderId): boolean {
-  return Boolean(DEFAULT_KEYS[provider]);
+export function hasDefaultKey(_provider: ProviderId): boolean {
+  return false;
 }

@@ -24,9 +24,10 @@ export interface OrchestratorResult {
 }
 
 // Order matters: cheapest/most-reliable first. Each is tried in turn until
-// one returns parseable suggestions. mistral is last because it consumes the
-// bundled default key, which is shared across all installs.
-const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations", "duckduckgo", "huggingface", "mistral"];
+// one returns parseable suggestions. All legs are zero-config (no API key
+// required) — providers that need a key (mistral, openai, anthropic, groq)
+// must be selected explicitly by the user after pasting their key.
+const AUTO_CHAIN: ConcreteProviderId[] = ["pollinations", "duckduckgo", "huggingface"];
 
 function loadProviders(extensionRoot: string): ProvidersConfig {
   const p = resolveConfigPath(extensionRoot, "providers.yml");

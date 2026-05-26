@@ -22,14 +22,13 @@
 <p>Non-obvious facts about providers, the pipeline, and VSCode integration. Append new gotchas here as you discover them; do not delete entries unless the underlying behavior changed.</p>
 
 <h2 id="auto-chain">Auto-fallback chain</h2>
-<p>The default <code>provider: "auto"</code> walks <code>AUTO_CHAIN = ["pollinations", "duckduckgo", "huggingface", "mistral"]</code> in <code>orchestrator.ts</code>, returning the first success. Ordering rationale:</p>
+<p>The default <code>provider: "auto"</code> walks <code>AUTO_CHAIN = ["pollinations", "duckduckgo", "huggingface"]</code> in <code>orchestrator.ts</code>, returning the first success. Every leg is keyless — auto mode is guaranteed not to prompt for credentials. Ordering rationale:</p>
 <ol>
   <li><strong>pollinations</strong> first — pure-OpenAI schema, no handshake, GPT-4o-class. Lowest friction.</li>
   <li><strong>duckduckgo</strong> second — needs a vqd handshake (extra round-trip) but otherwise reliable; supports multiple frontier models.</li>
   <li><strong>huggingface</strong> third — works without a key but per-IP rate-limited heavily; default model is a 7B which is sometimes worse at JSON.</li>
-  <li><strong>mistral</strong> last — consumes the bundled default key shared across all installs. If we burn it, everyone burns it.</li>
 </ol>
-<p>When all four legs fail, the orchestrator throws a single error that lists every leg's failure reason. The webview surfaces this verbatim — useful for debugging because typically only one or two legs go down at a time.</p>
+<p>When all three legs fail, the orchestrator throws a single error that lists every leg's failure reason. The webview surfaces this verbatim — useful for debugging because typically only one or two legs go down at a time. Providers that require a key (mistral, openai, anthropic, groq) are never in the auto chain; the user must select them explicitly after pasting a key.</p>
 
 <h2 id="providers">Provider quirks</h2>
 
@@ -68,16 +67,13 @@
 </ul>
 
 
-<h3 id="default-key">Bundled default Mistral key</h3>
-<div class="warn">
-<strong>Bundled in the .vsix.</strong> The repo ships a shared throwaway Mistral key in <code>src/providers/default-keys.ts</code> so first-time users can try the extension without signing up. This key is shared across all installs, rate-limited (~1 req/s on free tier), and will almost certainly be revoked or hit quota once the extension sees real usage. The webview shows a warning banner whenever this default is being used.
-</div>
+<h3 id="byok">No bundled keys — BYOK only</h3>
+<p>The extension ships <strong>no API keys</strong>. Providers split into two categories:</p>
 <ul>
-  <li>Key resolution order in <code>orchestrator.ts</code>: <em>user-supplied key via SecretStorage</em> &rarr; <em>bundled default from <code>default-keys.ts</code></em>. User key always wins.</li>
-  <li>The banner ("⚠️ Using shared default key") is shown only when the active provider is <code>mistral</code> AND the user has no key set. Other providers have no bundled default; if they have no key they will fail with a clear ProviderError instead.</li>
-  <li>The two banner buttons map to webview &rarr; extension messages: <code>{ type: "open-mistral-console" }</code> opens <code>https://console.mistral.ai/api-keys</code> in the OS browser; <code>{ type: "paste-key" }</code> opens an InputBox and stores into SecretStorage.</li>
-  <li>If you fork this repo: replace the key in <code>default-keys.ts</code> with your own throwaway, or remove the file and return <code>undefined</code> from <code>defaultKeyFor</code>. Never ship a paid/production key here — anyone who downloads the .vsix can extract it in seconds.</li>
+  <li><strong>No-key:</strong> pollinations, duckduckgo, huggingface, ollama, g4f. Work out of the box. The default <code>auto</code> chain only uses these.</li>
+  <li><strong>BYOK:</strong> mistral, openai, anthropic, groq. Selecting one of these without a key in SecretStorage shows a 🔑 banner with a "Paste my key" button (and a "Get free key" link for Mistral, which is the only one with a free tier).</li>
 </ul>
+<p>Earlier in the project we shipped a hardcoded shared Mistral key as a convenience. That was reversed: shared keys get burned or violate ToS once the extension hits real usage.</p>
 
 <h3 id="mistral">Mistral free tier</h3>
 <ul>

@@ -460,23 +460,32 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     }[c]));
   }
 
+  // Providers that require an API key. Auto/Pollinations/DuckDuckGo/HF/Ollama/g4f
+  // work without one. Mirrors the BYOK column in docs/provider-comparison.html.
+  const KEY_REQUIRED = ["mistral", "openai", "anthropic", "groq"];
+
   function renderBanner(state) {
-    if (state.settings.providerId !== "mistral" || state.hasUserKey) {
+    const needsKey = KEY_REQUIRED.indexOf(state.settings.providerId) >= 0;
+    if (!needsKey || state.hasUserKey) {
       bannerEl.innerHTML = "";
       return;
     }
+    const provider = state.settings.providerId;
     bannerEl.innerHTML =
       '<div class="banner">'
-      + '<div class="banner-title">⚠️ Using shared default key</div>'
-      + "You're using a shared throwaway Mistral key bundled with the extension. "
-      + "It is rate-limited (~1 req/s) and may be revoked at any time. "
-      + "<b>Get your own free key</b> for reliable use."
+      + '<div class="banner-title">🔑 API key required</div>'
+      + "The <b>" + escapeHtml(provider) + "</b> provider needs an API key. "
+      + "Paste yours below, or switch to a no-key provider from the ⚙️ menu."
       + '<div class="banner-actions">'
-      + '<button class="secondary" id="open-console">Get free key</button>'
+      + (provider === "mistral"
+          ? '<button class="secondary" id="open-console">Get free key</button>'
+          : "")
       + '<button id="paste-key">Paste my key</button>'
       + "</div></div>";
-    $("open-console").addEventListener("click", () =>
-      vscode.postMessage({ type: "open-mistral-console" }));
+    if (provider === "mistral") {
+      $("open-console").addEventListener("click", () =>
+        vscode.postMessage({ type: "open-mistral-console" }));
+    }
     $("paste-key").addEventListener("click", () =>
       vscode.postMessage({ type: "paste-key" }));
   }
