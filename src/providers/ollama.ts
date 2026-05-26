@@ -46,7 +46,7 @@ export class OllamaProvider extends Provider {
     } catch (err) {
       throw new ProviderError(
         this.id,
-        `Network error: ${(err as Error).message}. Is Ollama running at ${baseUrl}? Start it with: ollama serve`,
+        `Network error: ${(err as Error).message}. Is the local service running at ${baseUrl}?`,
       );
     }
 
@@ -59,11 +59,11 @@ export class OllamaProvider extends Provider {
         const installed = await this.listInstalledModels(baseUrl);
         const have =
           installed && installed.length > 0
-            ? `Installed: ${installed.join(", ")}. Pick one in the model setting.`
-            : `No models installed. Run: ollama pull ${args.model}`;
+            ? `Installed locally: ${installed.join(", ")}. Pick one in the model setting.`
+            : `No local models installed.`;
         throw new ProviderError(
           this.id,
-          `Model "${args.model}" is not installed on the local Ollama. ${have}`,
+          `Model "${args.model}" is not installed locally. ${have}`,
           resp.status,
         );
       }

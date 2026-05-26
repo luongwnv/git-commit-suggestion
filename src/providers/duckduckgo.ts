@@ -32,7 +32,7 @@ async function fetchVqd(): Promise<string> {
     },
   });
   if (!resp.ok) {
-    throw new Error(`vqd handshake failed: HTTP ${resp.status}`);
+    throw new Error(`Handshake failed: HTTP ${resp.status}`);
   }
   const vqd = resp.headers.get("x-vqd-4");
   if (!vqd) {
@@ -44,10 +44,10 @@ async function fetchVqd(): Promise<string> {
     const hashHeader = resp.headers.get("x-vqd-hash-1");
     if (hashHeader) {
       throw new Error(
-        "DuckDuckGo introduced a JS anti-bot challenge that this extension can't solve from Node. Pick a different provider.",
+        "This provider added an anti-bot challenge the extension can't solve. Pick another provider.",
       );
     }
-    throw new Error("vqd handshake failed: no x-vqd-4 header");
+    throw new Error("Handshake failed: missing session token");
   }
   return vqd;
 }
@@ -99,7 +99,7 @@ export class DuckDuckGoProvider extends Provider {
     try {
       vqd = await fetchVqd();
     } catch (err) {
-      throw new ProviderError(this.id, `vqd handshake failed: ${(err as Error).message}`);
+      throw new ProviderError(this.id, (err as Error).message);
     }
     try {
       const text = await postChat(vqd, modelId, args.systemPrompt, args.userPrompt);

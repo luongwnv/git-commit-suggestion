@@ -15,7 +15,7 @@ export class HuggingFaceProvider extends Provider {
     if (!args.apiKey) {
       throw new ProviderError(
         this.id,
-        "Missing API token. Get a free token at https://huggingface.co/settings/tokens and paste it via the settings panel.",
+        "Missing API token. Get a free token from your account dashboard and paste it via the settings panel.",
       );
     }
 
@@ -51,7 +51,7 @@ export class HuggingFaceProvider extends Provider {
       if (resp.status === 401 || resp.status === 403) {
         throw new ProviderError(
           this.id,
-          "Token rejected. Generate a new one at https://huggingface.co/settings/tokens (Read scope) and re-paste it.",
+          "Token rejected. Generate a new one (Read scope) and re-paste it.",
           resp.status,
         );
       }
