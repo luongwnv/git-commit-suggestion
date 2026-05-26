@@ -6,9 +6,9 @@ UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-pl
 
 A dedicated **Commit Suggestions** webview lives in its own Activity Bar container — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
 
-The extension ships with a curated set of zero-config providers (shown in the dropdown as **Bloom**, **Quack**, **Hugs**) plus an **Auto** option that picks whichever is healthy right now. No API key needed to start. If you'd rather use your own account, paste a key for Mistral / OpenAI / Anthropic / Groq via the settings panel.
+The default `auto` provider tries three no-key providers (Pollinations, DuckDuckGo, HuggingFace) in turn. Zero setup required to start. Providers that need an API key (Mistral, OpenAI, Anthropic, Groq) are BYOK — paste your key via the ⚙️ panel or the command palette.
 
-> **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (rate limits, endpoint rotation, JSON parse repair, etc.).
+> **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
 ## Layout
 
@@ -29,22 +29,22 @@ docs/
   provider-comparison.html
 ```
 
-## Providers
+## Provider status
 
-| Dropdown label | Key required? | Notes |
-|----------------|---------------|-------|
-| **Auto** | No | Default. Tries the bundled zero-config providers in turn and returns the first success. |
-| Bloom | No | Bundled zero-config provider. |
-| Quack | No | Bundled zero-config provider. |
-| Hugs | No | Bundled zero-config provider. |
-| Mistral | Yes (BYOK) | Free-tier key available at console.mistral.ai/api-keys. |
-| OpenAI | Yes (BYOK) | |
-| Anthropic | Yes (BYOK) | |
-| Groq | Yes (BYOK) | Free-tier key. |
-| Ollama (local) | No | Runs models locally; configure base URL in settings. |
-| g4f (unofficial) | No | Opt-in via `enableUnofficialProviders`. No SLA. |
+| Provider | Type | Free? | Key required? | Setting | Status |
+|----------|------|-------|---------------|---------|--------|
+| **auto** | Chain | ✅ | No | `provider: auto` | **default** — tries pollinations → duckduckgo → huggingface |
+| pollinations | Public gateway | ✅ free | No | `provider: pollinations` | zero-config, GPT-4o-class on default model |
+| duckduckgo | DDG AI Chat | ✅ free | No | `provider: duckduckgo` | reverse-engineered, vqd handshake, GPT-4o-mini / Claude Haiku / Llama / Mistral / o3-mini |
+| huggingface | HF router | ✅ free (BYOK bumps quota) | No (optional) | `provider: huggingface` | OpenAI-compatible, Qwen 2.5 7B default |
+| mistral | Official API | ✅ free tier | Yes (BYOK) | `provider: mistral` | supported |
+| openai | Official API | ❌ BYOK paid | Yes | `provider: openai` | supported |
+| anthropic | Official API | ❌ BYOK paid | Yes | `provider: anthropic` | supported |
+| groq | Official API | ✅ free tier | Yes | `provider: groq` | supported |
+| ollama | Local | ✅ free | No | `provider: ollama` | supported |
+| g4f | Reverse proxy | ⚠️ unofficial | No | `provider: g4f` + `enableUnofficialProviders: true` | opt-in, no SLA, ToS-violating |
 
-The zero-config providers are intentionally not named after their upstream services — the project owns the curation. Internal provider IDs and endpoints are documented in [docs/provider-comparison.html](docs/provider-comparison.html) for contributors.
+The default `auto` chain means **the extension works with zero setup** — no API key needed. The first no-key provider that responds wins.
 
 ## Quick start
 

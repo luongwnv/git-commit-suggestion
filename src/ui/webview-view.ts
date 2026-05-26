@@ -44,38 +44,18 @@ interface ViewState {
   suggestions: SerializedSuggestion[];
 }
 
-// Free providers wear cute display names so the dropdown reads as a
-// curated list rather than a stack of vendor brands. The provider IDs
-// (kept in code paths, log strings the user doesn't normally see, and
-// the providers.yml catalogue) remain unchanged so the orchestrator and
-// tests don't shift. Paid/BYOK providers keep their real names because
-// users need to know which vendor's key to paste.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "pollinations", label: "Bloom" },
-  { id: "duckduckgo", label: "Quack (broken)" },
-  { id: "huggingface", label: "Hugs (BYOK)" },
-  { id: "mistral", label: "Mistral" },
-  { id: "openai", label: "OpenAI" },
-  { id: "anthropic", label: "Anthropic" },
-  { id: "groq", label: "Groq" },
+  { id: "auto", label: "Auto (try all free providers)" },
+  { id: "pollinations", label: "Pollinations (free, no key)" },
+  { id: "duckduckgo", label: "DuckDuckGo AI (free, no key)" },
+  { id: "huggingface", label: "HuggingFace (free, optional key)" },
+  { id: "mistral", label: "Mistral (free tier or BYOK)" },
+  { id: "openai", label: "OpenAI (BYOK)" },
+  { id: "anthropic", label: "Anthropic (BYOK)" },
+  { id: "groq", label: "Groq (free tier)" },
   { id: "ollama", label: "Ollama (local)" },
   { id: "g4f", label: "g4f (unofficial)" },
 ];
-
-// Reverse lookup used when rendering the "Provider: …" header line and
-// surfacing the providerUsed string returned by the orchestrator.
-const PROVIDER_LABEL_BY_ID: Record<string, string> = Object.fromEntries(
-  PROVIDER_OPTIONS.map((p) => [p.id, p.label]),
-);
-
-function maskProviderLabel(raw: string): string {
-  // raw is shaped like "auto → pollinations (no key)" or "mistral (user key)".
-  // Replace any provider id with its cute label, keep the rest of the string.
-  return raw.replace(/\b(auto|pollinations|duckduckgo|huggingface|mistral|openai|anthropic|groq|ollama|g4f)\b/g, (m) =>
-    PROVIDER_LABEL_BY_ID[m] ?? m,
-  );
-}
 
 const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
   Object.keys(LANGUAGE_LABELS) as Language[]
@@ -119,15 +99,11 @@ const DEFAULT_SETTINGS: DisplaySettings = {
   showBody: true,
 };
 
-// Settings icon — simple pencil. Diagonal pencil body from top-right to
-// bottom-left with an eraser cap at the top and a tip at the bottom.
-// Single stroke=currentColor outline + a filled tip + filled eraser cap
-// for visual interest. Reads clearly in both light and dark themes.
-const SETTINGS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5l4 4-12 12-5 1 1-5 12-12z"/><path d="M14 6l4 4"/><path d="M4.5 19.5l1-5 4 4-5 1z" fill="currentColor"/></svg>`;
-
-// "API key" badge icon — inlined from assets/remote.svg. Same flatten-to-
-// currentColor + opacity treatment. Used in the BYOK banner.
-const KEY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><path d="M62.886,12.297L51.741,1.154c-1.539-1.539-4.034-1.539-5.573,0L1.154,46.16c-1.539,1.539-1.539,4.033,0,5.571l11.145,11.144c1.539,1.538,4.034,1.538,5.572,0l45.015-45.006C64.425,16.33,64.425,13.836,62.886,12.297z" opacity="0.35"/><circle cx="44.063" cy="20.035" r="8.006"/><circle cx="44.063" cy="20.035" r="4.003" opacity="0.35"/><circle cx="31.05" cy="27.041" r="3.002"/><circle cx="37.056" cy="33.046" r="3.003"/></svg>`;
+// Settings icon. Solid SVG, no outer rectangle frame — just the form/list
+// content paths from settings-svgrepo-com.svg. Inline so the webview's strict
+// CSP (no external assets) stays happy and the icon scales/recolors with
+// currentColor.
+const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 218.207 218.207" fill="currentColor" aria-hidden="true"><path d="M54.521,105.207h35.13c12.875,0,23.349-10.487,23.349-23.379c0-12.892-10.474-23.379-23.349-23.379h-35.13c-12.875,0-23.349,10.487-23.349,23.379C31.172,94.72,41.646,105.207,54.521,105.207z M54.521,66.241h35.13c8.577,0,15.556,6.99,15.556,15.586c0,8.596-6.979,15.586-15.556,15.586h-35.13c-8.577,0-15.556-6.99-15.556-15.586C38.965,73.231,45.944,66.241,54.521,66.241z"/><rect x="128.586" y="58.448" width="58.599" height="7.793"/><rect x="128.586" y="74.034" width="38.966" height="7.793"/><rect x="128.586" y="113" width="27.276" height="7.793"/><rect x="128.586" y="128.586" width="50.832" height="7.793"/><rect x="128.586" y="144.172" width="50.832" height="7.793"/><path d="M85.724,93.517c6.446,0,11.69-5.244,11.69-11.69c0-6.446-5.244-11.69-11.69-11.69s-11.69,5.244-11.69,11.69C74.034,88.274,79.278,93.517,85.724,93.517z M85.724,77.931c2.148,0,3.897,1.746,3.897,3.897s-1.748,3.897-3.897,3.897s-3.897-1.746-3.897-3.897S83.576,77.931,85.724,77.931z"/><path d="M54.521,159.759h35.13c12.875,0,23.349-10.487,23.349-23.379c0-12.893-10.474-23.38-23.349-23.38h-35.13c-12.875,0-23.349,10.487-23.349,23.379C31.172,149.271,41.646,159.759,54.521,159.759z M54.521,120.793h35.13c8.577,0,15.556,6.99,15.556,15.586c0,8.596-6.979,15.586-15.556,15.586h-35.13c-8.577,0-15.556-6.99-15.556-15.586C38.966,127.783,45.944,120.793,54.521,120.793z"/><path d="M58.448,148.069c6.446,0,11.69-5.244,11.69-11.69c0-6.446-5.244-11.69-11.69-11.69s-11.69,5.244-11.69,11.69C46.759,142.825,52.002,148.069,58.448,148.069z M58.448,132.483c2.148,0,3.897,1.746,3.897,3.897c0,2.15-1.748,3.897-3.897,3.897c-2.148,0-3.897-1.746-3.897-3.897C54.552,134.229,56.3,132.483,58.448,132.483z"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -159,7 +135,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   setLoading(settings: DisplaySettings, hasUserKey: boolean): void {
     this.state = {
       status: "loading",
-      providerLabel: maskProviderLabel(settings.providerId),
+      providerLabel: settings.providerId,
       settings,
       hasUserKey,
       suggestions: [],
@@ -196,7 +172,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   ): void {
     this.state = {
       status: "ready",
-      providerLabel: maskProviderLabel(providerLabel),
+      providerLabel,
       settings,
       hasUserKey,
       suggestions: suggestions.map((s) => ({
@@ -442,12 +418,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 <body>
   <div class="header">
     <span class="provider" id="provider"></span>
-    <button class="icon-btn" id="settings-btn" title="Settings">${SETTINGS_ICON_SVG}</button>
+    <button class="icon-btn" id="settings-btn" title="Settings">${GEAR_SVG}</button>
     <button id="suggest-btn">Suggest</button>
   </div>
-  <!-- Banner FIRST so the "API key required" prompt is always visible at the
-       top of the view, even while the settings panel is expanded below it. -->
-  <div id="banner"></div>
   <div class="settings hidden" id="settings">
     <div class="settings-row">
       <label for="provider-select">Provider</label>
@@ -474,6 +447,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       <label for="body-toggle">Include explanation body</label>
     </div>
   </div>
+  <div id="banner"></div>
   <div id="content"><div class="empty">Stage some files, then click <b>Suggest</b>.</div></div>
 
 <script nonce="${nonce}">
@@ -516,10 +490,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     }[c]));
   }
 
-  // Providers that require an API key. HuggingFace router became BYOK-only
-  // in 2026 (anonymous returns 401), so it joined this list. Mirrors the
-  // BYOK column in docs/provider-comparison.html.
-  const KEY_REQUIRED = ["mistral", "openai", "anthropic", "groq", "huggingface"];
+  // Providers that require an API key. Auto/Pollinations/DuckDuckGo/HF/Ollama/g4f
+  // work without one. Mirrors the BYOK column in docs/provider-comparison.html.
+  const KEY_REQUIRED = ["mistral", "openai", "anthropic", "groq"];
 
   function renderBanner(state) {
     const needsKey = KEY_REQUIRED.indexOf(state.settings.providerId) >= 0;
@@ -530,9 +503,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     const provider = state.settings.providerId;
     bannerEl.innerHTML =
       '<div class="banner">'
-      + '<div class="banner-title">' + KEY_ICON_SVG + ' API key required</div>'
+      + '<div class="banner-title">🔑 API key required</div>'
       + "The <b>" + escapeHtml(provider) + "</b> provider needs an API key. "
-      + "Paste yours below, or pick a no-key provider from the settings menu."
+      + "Paste yours below, or switch to a no-key provider from the ⚙️ menu."
       + '<div class="banner-actions">'
       + (provider === "mistral"
           ? '<button class="secondary" id="open-console">Get free key</button>'
