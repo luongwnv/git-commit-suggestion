@@ -30,7 +30,9 @@
       "Bash(curl -sS -X POST https://router.huggingface.co/v1/chat/completions -H 'Content-Type: application/json' -H 'Authorization: Bearer hf_dummy' -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":10}' -m 30)",
       "Bash(curl -sS -o /dev/null -w '%{http_code} %{url_effective}\\\\n' https://router.huggingface.co/v1/models -m 15)",
       "Bash(curl -sS -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{ *)",
-      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}, time %{time_total}s\\\\n' -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-fast\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}' -m 60)"
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}, time %{time_total}s\\\\n' -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-fast\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}' -m 60)",
+      "Bash(find . -name \"Screenshot 2026-05-26 at 17.54.46.png\" 2>&1 | head -5 *)",
+      "Read(//Users/lit/Desktop/**)"
     ]
   }
 }

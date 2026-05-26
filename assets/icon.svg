@@ -1,102 +1,52 @@
 <!--
-  Extension icon — index finger pressing a git commit node.
+  Extension icon — fingertip tapping a git commit.
+
+  Style references the user-provided Screenshot 2026-05-26 17.54.46.png:
+  a top-down view of an index fingertip with a dashed "tap halo" arc
+  above, drawn in heavy outline.
 
   Composition (viewBox 0 0 256 256):
-    - Lower half: a git branch graph (3 commit circles connected by a vertical
-      line, with one side branch on the right merging back). This is the
-      canonical "git log graph" silhouette.
-    - Upper half: a hand silhouette with the index finger extended down,
-      tapping the top commit. The fingertip touches the commit so the user
-      reads "press to commit".
-    - Two ripple arcs above the tap point indicate the action of pressing.
+    - Top half: dashed semicircle arc (the "tap" halo)
+    - Middle: fingertip outline with cuticle + nail shape (open path)
+    - Bottom: two short horizontal bars replaced with a tiny git branch
+      glyph (3 commit dots on a single line) so the icon reads as
+      "tap to commit" rather than "tap a button".
 
-  Single-color (currentColor) so it themes correctly in any VSCode color
-  scheme. No outer rectangle frame.
+  Pure currentColor strokes so it themes correctly in any VSCode color
+  scheme.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
 
-  <!-- Git branch graph: main line + commits + side branch -->
-  <!-- Main vertical line -->
-  <rect x="121" y="140" width="6" height="92" rx="3"/>
-  <!-- Side branch line (curves out then back in) -->
-  <path d="M124 178 q26 4 26 28 v18 q0 16 -16 16" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-  <!-- Commit node: top (the one being tapped) -->
-  <circle cx="124" cy="148" r="12"/>
-  <!-- Commit node: middle main -->
-  <circle cx="124" cy="196" r="10"/>
-  <!-- Commit node: side branch tip -->
-  <circle cx="150" cy="210" r="9"/>
-  <!-- Commit node: bottom main -->
-  <circle cx="124" cy="232" r="10"/>
+  <!-- Dashed tap-halo arc above the fingertip -->
+  <path d="M 60 110 A 68 68 0 0 1 196 110" stroke-dasharray="14 16"/>
 
-  <!-- Tap ripples above the top commit, showing pressing motion -->
-  <path d="M104 130 q20 -10 40 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
-  <path d="M96 118 q28 -14 56 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
-
-  <!--
-    Hand with index finger pointing down, in the upper half.
-    Anatomy (top to bottom):
-      - Forearm/wrist: rounded rectangle entering from top-right corner
-      - Palm: rounded square
-      - Folded fingers (3 stubs on the left side of the palm — middle, ring, pinky tucked)
-      - Thumb: short curve coming out top-left
-      - Index finger: extended straight down to the commit
-    All as a single filled path for visual unity.
-  -->
+  <!-- Fingertip silhouette: rounded top arch, parallel sides going down -->
   <path d="
-    M 175 8
-    L 220 8
-    Q 234 8 234 22
-    L 234 62
-    Q 234 76 220 76
-    L 196 76
-    Q 188 76 184 82
-    L 184 92
-    Q 184 100 178 102
-    Q 172 100 172 92
-    L 172 84
-    Q 172 78 168 78
-    Q 162 78 162 86
-    L 162 96
-    Q 162 104 156 106
-    Q 150 104 150 96
-    L 150 88
-    Q 150 82 146 82
-    Q 140 82 140 90
-    L 140 102
-    Q 140 110 134 112
-    Q 128 110 128 102
-    L 128 96
-    Q 128 88 124 88
-    Q 118 88 118 96
-    L 118 134
-    L 130 134
-    L 130 96
-    Q 130 92 132 92
-    Q 134 92 134 96
-    L 134 76
-    Q 134 66 144 64
-    L 162 60
-    Q 168 58 168 52
-    L 168 22
-    Q 168 8 175 8
-    Z
-  " />
+    M 76 132
+    L 76 244
+    M 180 132
+    L 180 244
+    M 76 132
+    A 52 52 0 0 1 180 132
+  "/>
 
-  <!--
-    Index finger: a tapered rectangle pointing down from the palm to commit.
-    Slightly offset to align with the top commit circle centre at (124, 148).
-  -->
+  <!-- Fingernail (small inner arch) -->
   <path d="
-    M 118 92
-    Q 118 86 124 86
-    Q 130 86 130 92
-    L 130 138
-    Q 130 142 124 142
-    Q 118 142 118 138
+    M 108 152
+    L 108 198
+    Q 108 208 118 208
+    L 138 208
+    Q 148 208 148 198
+    L 148 152
+    Q 148 122 128 122
+    Q 108 122 108 152
     Z
-  " />
+  "/>
 
-  <!-- Fingertip emphasis: a slightly darker oval over the tip and commit -->
-  <ellipse cx="124" cy="142" rx="7" ry="5" opacity="0.75"/>
+  <!-- Git branch glyph at the base of the finger pad: 3 dots on a horizontal
+       line — the canonical "git log graph" silhouette in miniature. -->
+  <line x1="88" y1="232" x2="168" y2="232"/>
+  <circle cx="98" cy="232" r="6" fill="currentColor"/>
+  <circle cx="128" cy="232" r="6" fill="currentColor"/>
+  <circle cx="158" cy="232" r="6" fill="currentColor"/>
 </svg>
