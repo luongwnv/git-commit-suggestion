@@ -51,6 +51,16 @@ Apply: even with `response_format: json_object`, ~10% of responses come wrapped.
 
 ---
 
+## Git workflow
+
+### `git add -A` includes random files dropped into the working tree
+Context: user dropped 6 SVG files into the project root (asset stash). Running `git add -A && git commit` silently swept all of them into the commit, polluting history with three unrelated `smartphone-*.svg` files.
+Apply: before any commit, scan `git status -s` for unexpected `??` entries. If a binary/asset file appears that you didn't touch, ask before adding. Prefer staging by explicit paths over `-A` when the working tree has mystery files.
+
+### When an unwanted file lands in HEAD, prefer `git restore --staged` over amend-rewriting
+Context: amending HEAD to drop the files would have been faster but risky during a multi-step commit chain. Removing files from the tree + committing the deletions is cleaner — history records the mistake and the cleanup, both honest.
+Apply: only amend if HEAD hasn't been verified yet; otherwise create a follow-up cleanup commit.
+
 ## Tooling / shell
 
 ### `npm`/`npx`/`node` not on PATH; nvm shell functions don't survive a non-interactive Bash invocation
