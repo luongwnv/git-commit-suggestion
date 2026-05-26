@@ -1,52 +1,75 @@
 <!--
-  Extension icon — fingertip tapping a git commit.
+  Extension icon — fingertip tapping a commit list on a smartphone screen,
+  surrounded by sparkles. Faithful redraw of assets/icon.png as inline
+  SVG so the icon scales cleanly and themes via currentColor.
 
-  Style references the user-provided Screenshot 2026-05-26 17.54.46.png:
-  a top-down view of an index fingertip with a dashed "tap halo" arc
-  above, drawn in heavy outline.
-
-  Composition (viewBox 0 0 256 256):
-    - Top half: dashed semicircle arc (the "tap" halo)
-    - Middle: fingertip outline with cuticle + nail shape (open path)
-    - Bottom: two short horizontal bars replaced with a tiny git branch
-      glyph (3 commit dots on a single line) so the icon reads as
-      "tap to commit" rather than "tap a button".
-
-  Pure currentColor strokes so it themes correctly in any VSCode color
-  scheme.
+  Composition (viewBox 0 0 256 256, original 800x800):
+    - Top-left: 4-point sparkle (the bigger ✨)
+    - Top-right: a plus (+)
+    - A few scattered small dots (top-right + middle-left + middle-right)
+    - Centre: smartphone outline (rounded rectangle, ~134x224)
+    - Inside the phone, top half: an avatar/file square + three text lines
+      (the "commit summary header" row)
+    - Inside the phone, middle: 4 full-width text lines (the body)
+    - Inside the phone, lower-middle: an avatar/file square on the right + two
+      text lines on the left (the next commit row)
+    - Bottom: fingertip outline emerging from below the phone, with a
+      dashed tap-halo arc around it (the "press" indicator)
+  All paths share currentColor so the icon themes for any background.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
 
-  <!-- Dashed tap-halo arc above the fingertip -->
-  <path d="M 60 110 A 68 68 0 0 1 196 110" stroke-dasharray="14 16"/>
+  <!-- ====== Sparkles & dots around the phone ====== -->
+  <!-- Top-left big 4-point sparkle -->
+  <path d="M 22 22 L 30 12 L 38 22 L 30 32 Z" fill="currentColor" stroke="none"/>
+  <circle cx="30" cy="22" r="2.4" fill="white" stroke="none"/>
+  <!-- Top-right plus -->
+  <path d="M 236 56 v 14 M 229 63 h 14" stroke-width="6"/>
+  <!-- Scattered dots -->
+  <circle cx="18" cy="110" r="2.6" fill="currentColor" stroke="none"/>
+  <circle cx="36" cy="170" r="3" fill="currentColor" stroke="none"/>
+  <circle cx="232" cy="152" r="3" fill="currentColor" stroke="none"/>
+  <circle cx="244" cy="240" r="2.4" fill="currentColor" stroke="none"/>
 
-  <!-- Fingertip silhouette: rounded top arch, parallel sides going down -->
+  <!-- ====== Phone outline ====== -->
+  <rect x="64" y="6" width="134" height="224" rx="14"/>
+
+  <!-- ====== First commit row: square avatar + 3 short lines ====== -->
+  <rect x="80" y="28" width="22" height="22" rx="2"/>
+  <line x1="112" y1="32" x2="178" y2="32"/>
+  <line x1="112" y1="42" x2="166" y2="42"/>
+  <line x1="112" y1="52" x2="178" y2="52"/>
+
+  <!-- ====== Body: four full-width lines ====== -->
+  <line x1="80" y1="76" x2="180" y2="76"/>
+  <line x1="80" y1="90" x2="180" y2="90"/>
+  <line x1="80" y1="104" x2="180" y2="104"/>
+  <line x1="80" y1="118" x2="168" y2="118"/>
+
+  <!-- ====== Second commit row: 2 short lines on left + square avatar on right ====== -->
+  <line x1="80" y1="146" x2="146" y2="146"/>
+  <line x1="80" y1="158" x2="146" y2="158"/>
+  <rect x="156" y="140" width="22" height="22" rx="2"/>
+
+  <!-- ====== Dashed tap-halo arc just above the fingertip ====== -->
+  <path d="M 98 200 A 30 30 0 0 1 158 200" stroke-dasharray="6 6"/>
+
+  <!-- ====== Fingertip: arched tip + parallel sides going down past phone ====== -->
   <path d="
-    M 76 132
-    L 76 244
-    M 180 132
-    L 180 244
-    M 76 132
-    A 52 52 0 0 1 180 132
+    M 102 218
+    A 26 26 0 0 1 154 218
+    L 154 250
+    M 102 218
+    L 102 250
   "/>
-
-  <!-- Fingernail (small inner arch) -->
+  <!-- Fingernail inside the fingertip -->
   <path d="
-    M 108 152
-    L 108 198
-    Q 108 208 118 208
-    L 138 208
-    Q 148 208 148 198
-    L 148 152
-    Q 148 122 128 122
-    Q 108 122 108 152
+    M 118 222
+    L 118 232
+    M 138 222
+    L 138 232
+    M 118 222
+    A 10 10 0 0 1 138 222
     Z
   "/>
-
-  <!-- Git branch glyph at the base of the finger pad: 3 dots on a horizontal
-       line — the canonical "git log graph" silhouette in miniature. -->
-  <line x1="88" y1="232" x2="168" y2="232"/>
-  <circle cx="98" cy="232" r="6" fill="currentColor"/>
-  <circle cx="128" cy="232" r="6" fill="currentColor"/>
-  <circle cx="158" cy="232" r="6" fill="currentColor"/>
 </svg>

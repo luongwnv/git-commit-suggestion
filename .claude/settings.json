@@ -32,7 +32,9 @@
       "Bash(curl -sS -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{ *)",
       "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}, time %{time_total}s\\\\n' -X POST https://text.pollinations.ai/openai -H 'Content-Type: application/json' -d '{\"model\":\"openai-fast\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}' -m 60)",
       "Bash(find . -name \"Screenshot 2026-05-26 at 17.54.46.png\" 2>&1 | head -5 *)",
-      "Read(//Users/lit/Desktop/**)"
+      "Read(//Users/lit/Desktop/**)",
+      "Bash(find . -name \"icon.png\" -not -path \"*/node_modules/*\" 2>&1 | head -5 && echo \"---\" && ls -la ~/Downloads/icon.png ~/Desktop/icon.png 2>&1 | head -5)",
+      "Read(//Users/lit/Downloads/**)"
     ]
   }
 }
