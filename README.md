@@ -1,122 +1,123 @@
-# git-commit-suggestion
+# Git Commit Suggestion
 
-VSCode extension that reads the **staged git diff** and asks an LLM for **3-5 Conventional Commits suggestions** in **English + Vietnamese**. Pick one, it lands in the Source Control input box.
+Stop staring at a blank commit message. Stage your changes, click **Suggest**, and get 3–8 Conventional Commits proposals to pick from.
 
-UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-plugin); architecture modeled on `index-crawl` (declarative `config/*.yml`, separated `models / providers / pipeline / ui / utils`, knowledge-base doc).
+![Commit Suggestion sidebar](assets/screenshot.png)
 
-A dedicated **Commit Suggestions** webview lives in its own Activity Bar container — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
+## Features
 
-The default `Auto` provider tries Whale, Platypus, and Polar Bear in turn — no API key needed to start. Other providers (Mistral, OpenAI, Anthropic, Groq) require a key you paste via the settings panel or the command palette.
+- **Zero setup.** The default provider needs no API key — it just works on the first launch.
+- **21 output languages.** English, Vietnamese, 简体中文, 繁體中文, 日本語, 한국어, Español, Français, Deutsch, Português, Русский, Bahasa Indonesia, ภาษาไทย, العربية, हिन्दी, Italiano, Türkçe, Polski, Nederlands, Українська, Svenska. The entire panel switches language with one dropdown.
+- **Conventional Commits aware.** Type / scope / subject / body are generated according to your chosen best-practice rules: imperative mood, subject ≤ 50 chars, capitalize, no trailing period, wrap body at 72, body explains *why* (not *how*), reference issues.
+- **Three detail levels.** Subject only, subject + brief body, or full multi-paragraph explanation.
+- **BYOK when you want better quality.** Paste a key for Mistral, OpenAI, Anthropic, or Groq in the inline settings panel — no JSON editing required.
+- **One-click commit.** *Use this* drops the formatted message straight into the Source Control input box. Review and commit normally.
 
-> **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
+## Getting started
 
-## Layout
+1. Install the extension.
+2. Open a Git repository in VSCode.
+3. Click the **lightbulb-on-phone icon** in the Activity Bar (left edge).
+4. Stage at least one file (`git add ...` or click `+` next to a file in Source Control).
+5. Click **Suggest**. Wait a couple of seconds.
+6. Click **Use this** on the suggestion you like. Review the commit message in the Source Control input. Press **Commit**.
 
-```
-config/
-  providers.yml           # endpoint, default model, free/paid flag per provider
-  commit-types.yml        # Conventional Commits catalogue (EN + VI descriptions)
-  prompts.yml             # system + user prompt templates ({{vars}})
-src/
-  models/                 # zod schemas: Suggestion, ParsedDiff, ExtensionConfig
-  providers/              # one class per LLM provider + a registry
-  pipeline/               # diff-collector → prompt-builder → orchestrator → parser
-  ui/                     # webview-view (sidebar GUI), quick-pick (palette fallback), scm-writer, status-bar
-  utils/                  # git child_process, OutputChannel logger, i18n
-  extension.ts            # activation, command registration, view provider wiring
-docs/
-  knowledge-base.html     # non-obvious facts; append as discovered
-  provider-comparison.html
-```
-
-## Providers
-
-UI labels use codenames; the table also lists the internal `provider:` id used in settings.
-
-| UI label | id | Key |
-|----------|----|-----|
-| **Auto** | `auto` | none — **default**, tries Whale → Platypus → Polar Bear and returns the first success |
-| Whale | `pollinations` | none |
-| Platypus | `duckduckgo` | none |
-| Polar Bear | `huggingface` | optional |
-| Axolotl | `ollama` | none (local) |
-| Dinosaur | `g4f` | none (opt-in via `enableUnofficialProviders: true`) |
-| Mistral | `mistral` | required (BYOK) |
-| OpenAI | `openai` | required (BYOK) |
-| Anthropic | `anthropic` | required (BYOK) |
-| Groq | `groq` | required (BYOK) |
-
-Upstream endpoints, model lists, and protocol quirks for each id live in [docs/provider-comparison.html](docs/provider-comparison.html).
-
-The default `auto` chain means **the extension works with zero setup** — no API key needed. The first no-key provider that responds wins.
-
-## Quick start
-
-```bash
-# 1. Install deps + build
-npm install
-npm run compile
-
-# 2. Open this folder in VSCode, press F5 → an Extension Development Host launches
-#    In that host, open any git repo, stage some files, run:
-#      "Git Commit Suggestion: Set API Key for Provider"  (pick mistral, paste key)
-#      "Git Commit Suggestion: Suggest Commit Message"     (or click the status bar lightbulb)
-
-# 3. Package the .vsix when you want to install permanently
-npx @vscode/vsce package
-code --install-extension git-commit-suggestion-0.1.0.vsix
-```
-
-Get a free Mistral API key at <https://console.mistral.ai/>.
+That's it. No keys, no setup.
 
 ## Settings
 
-| Key | Default | Purpose |
-|-----|---------|---------|
-| `gitCommitSuggestion.provider` | `mistral` | One of the providers in the table above |
-| `gitCommitSuggestion.model` | `""` | Override default model from `config/providers.yml` |
-| `gitCommitSuggestion.language` | `bilingual` | `bilingual` / `en` / `vi` |
-| `gitCommitSuggestion.suggestionCount` | `4` | How many suggestions to request |
-| `gitCommitSuggestion.maxDiffTokens` | `6000` | Diff budget; larger diffs are truncated file-by-file |
-| `gitCommitSuggestion.enableUnofficialProviders` | `false` | Gate for `g4f` |
-| `gitCommitSuggestion.customPromptPath` | `""` | Override `config/prompts.yml` |
-| `gitCommitSuggestion.ollamaBaseUrl` | `http://localhost:11434` | Only used when `provider=ollama` |
+Click the ✏️ button in the panel header to open inline settings:
 
-API keys are stored in **VSCode SecretStorage**, not settings — they never appear in `settings.json`. Use the `Set API Key for Provider` command.
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| **Output language** | English | The language used for everything — UI labels, generated commit messages, error text. |
+| **Provider** | Auto | Pick which LLM to call. *Auto* tries free providers in order and returns the first success. |
+| **Detail level** | Normal | *Concise* = subject only, *Normal* = subject + brief body, *Detailed* = subject + multi-paragraph explanation. |
+| **Best practices** | 5 of 7 | Toggle individual Conventional Commits rules. Each rule maps to a line of guidance fed to the LLM. |
+| **Number of suggestions** | 4 | Between 1 and 8. |
+| **Show emoji prefix** | on | Prepends ✨🐛📝… according to the commit type. |
+| **Include explanation body** | on | Turn off for subject-only commit messages. |
 
-## How it works
+Advanced settings (model overrides, custom prompts, diff truncation budget, unofficial provider gate) are exposed in VSCode's standard Settings under **Extensions → Git Commit Suggestion**.
 
-1. User opens the **Commit Suggestions** view in the Source Control sidebar (or runs `gitCommitSuggestion.suggest` from the palette/status bar).
-2. The webview ([src/ui/webview-view.ts](src/ui/webview-view.ts)) sends a `suggest` postMessage to the extension host on button click.
-3. [src/pipeline/diff-collector.ts](src/pipeline/diff-collector.ts) runs `git diff --staged --no-color -U3`, splits per file, truncates to `maxDiffTokens` keeping small files whole.
-4. [src/pipeline/prompt-builder.ts](src/pipeline/prompt-builder.ts) loads templates from `config/prompts.yml` and substitutes `{{count}}`, `{{language}}`, `{{types_block}}`, `{{diff}}`.
-5. [src/pipeline/orchestrator.ts](src/pipeline/orchestrator.ts) picks the provider (per setting), calls it. If `g4f` fails, it falls back to `mistral` automatically.
-6. [src/pipeline/parser.ts](src/pipeline/parser.ts) strips markdown fences, extracts the JSON array, validates with zod, normalizes type/scope.
-7. Extension posts `{ type: "state", state: { suggestions, ... } }` back to the webview, which re-renders cards (EN subject + VI gloss + body, *Use this* button).
-8. Clicking *Use this* sends `{ type: "use", index }` back; the extension calls [src/ui/scm-writer.ts](src/ui/scm-writer.ts) to drop the formatted message into the Git extension's `repository.inputBox`. User reviews and presses Commit normally.
-9. The command-palette entrypoint additionally falls back to a `vscode.window.showQuickPick` so it works even if the sidebar view isn't visible.
+## Bring your own key (optional)
 
-## Common gotchas
+The default *Auto* mode does not need a key. If you want to use **Mistral**, **OpenAI**, **Anthropic**, or **Groq**:
 
-- **Mistral free tier ~1 req/sec.** A second click within ~1s of the first may 429. The orchestrator surfaces the HTTP body in the error message.
-- **g4f endpoints rotate.** Treat any g4f success as luck. The provider tries a list of community endpoints in order; if all fail, it falls back to Mistral (so you'll need a Mistral key set even when using g4f).
-- **LLMs sometimes wrap JSON in ```json fences** despite the system prompt. The parser strips them. If the model returns prose anyway, the call fails — re-run.
-- **Empty SCM input box after Suggest.** Means the `vscode.git` extension wasn't activated or no repo matched the workspace folder. The message is copied to clipboard as a fallback.
-- **Anthropic uses `/messages`, not `/chat/completions`.** Don't try to share code with the OpenAI-compatible providers beyond what `providers/anthropic.ts` already does.
-- **Diff truncation is by-file, not by-line.** A single huge file gets head-truncated with a `[truncated N chars]` marker; small files always go in whole.
+1. Select the provider in the inline settings panel.
+2. A banner appears: *"API key required"*. Click **Paste my key**.
+3. Enter your key once — it's stored securely in VSCode's `SecretStorage` (never in `settings.json`).
 
-## Adding a new provider
+The key is per-machine and never synced.
 
-1. Append an entry to [config/providers.yml](config/providers.yml) with `base_url`, `endpoint`, `default_model`, `auth`, and free-tier notes.
-2. If the provider uses the OpenAI `/chat/completions` schema, the existing `OpenAICompatibleProvider` handles it — just add the id to [src/providers/index.ts](src/providers/index.ts) `buildProvider`.
-3. Otherwise add a new class under [src/providers/](src/providers/) extending `Provider`.
-4. Add the id to the enum in `package.json` (`gitCommitSuggestion.provider.enum`) and to `ProviderIdSchema` in [src/models/config.ts](src/models/config.ts).
-5. Document quirks in [docs/knowledge-base.html](docs/knowledge-base.html) and update the table in [docs/provider-comparison.html](docs/provider-comparison.html).
+Free keys you can grab in 60 seconds:
+- **Mistral** — `console.mistral.ai` → API Keys
+- **Groq** — `console.groq.com` → API Keys
+- **OpenAI** / **Anthropic** — paid only
 
-## Conventions
+## Privacy
 
-- All artifacts (README, code, comments, HTML docs, commit-type labels) are in **English**. User conversation may be Vietnamese.
-- LLM **output** is bilingual (or English/Vietnamese-only per `language` setting) — that is a product feature, not part of the repo's artifact-language rule.
-- API keys live in VSCode `SecretStorage`. Never `vscode.workspace.getConfiguration().update(...)` an API key — that writes to `settings.json`.
-- `config/*.yml` is the single source of truth for endpoints, default models, and commit-type catalogue. Code should not hardcode these.
-- The orchestrator's only automatic fallback is `g4f → mistral`. All other providers raise on failure.
+- The extension sends your **staged diff** and a short prompt to whichever provider you selected. Nothing else.
+- No telemetry, no analytics, no third-party tracking from the extension itself. (The LLM provider has its own policies — check theirs if your diffs contain sensitive code.)
+- API keys live in VSCode `SecretStorage`. They are encrypted per-machine.
+- All settings stay in your local `settings.json`. Nothing is written anywhere else.
+
+For private repos with sensitive code: use **Mistral** or **Anthropic** with your own key, since their commercial terms forbid training on API content. *Auto* mode uses free community providers whose terms vary — review them before exposing private codebases.
+
+## Commands
+
+| Command (palette) | What it does |
+|-------------------|--------------|
+| `Git Commit Suggestion: Suggest Commit Message` | Generate suggestions. Works even when the sidebar is hidden — falls back to a QuickPick. |
+| `Git Commit Suggestion: Set API Key for Provider` | Store a key in SecretStorage. |
+| `Git Commit Suggestion: Clear API Key for Provider` | Remove a stored key. |
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| "Not inside a git repository" | Open a folder that contains a `.git` folder. The extension walks up from the workspace root to find one. |
+| "No staged changes" | Stage at least one file with `git add` or the `+` button in Source Control. |
+| Empty Source Control input box after *Use this* | Make sure the built-in `vscode.git` extension is enabled. As a fallback, the message is copied to the clipboard. |
+| All providers in *Auto* fail | A community provider may be down. Switch to a BYOK provider (Mistral has a free tier). |
+| Subject is in the wrong language | Re-pick the output language from the dropdown and click *Suggest* again. |
+
+## Publishing
+
+If you forked this and want to publish your own version to the Marketplace:
+
+```bash
+# One-time setup
+npm install -g @vscode/vsce
+
+# Create a Personal Access Token at https://dev.azure.com → User → Personal Access Tokens
+#   Scope: Marketplace → Manage
+# Then create a publisher at https://marketplace.visualstudio.com/manage and
+# log in:
+vsce login <your-publisher-id>
+
+# Verify the package contents (dry run):
+vsce package
+# Inspect the produced .vsix in any zip viewer.
+
+# Publish:
+vsce publish
+# or with explicit version bump:
+vsce publish patch    # 0.1.0 → 0.1.1
+vsce publish minor    # 0.1.0 → 0.2.0
+```
+
+Before first publish, edit `package.json`:
+- `publisher`: your Marketplace publisher id (not your GitHub username).
+- `repository.url`, `bugs.url`, `homepage` (optional but recommended).
+- `version`: starts at `0.1.0`.
+
+The Marketplace lists files matching `.vscodeignore` so the .vsix stays small (excludes `src/`, `test/`, `node_modules/`, source maps).
+
+## Contributing
+
+Developer guide and architecture notes live in [CONTRIBUTING.md](CONTRIBUTING.md). Provider quirks and gotchas are in [docs/knowledge-base.html](docs/knowledge-base.html).
+
+## License
+
+MIT.
