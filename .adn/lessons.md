@@ -61,6 +61,14 @@ Apply: even with `response_format: json_object`, ~10% of responses come wrapped.
 Context: user dropped 6 SVG files into the project root (asset stash). Running `git add -A && git commit` silently swept all of them into the commit, polluting history with three unrelated `smartphone-*.svg` files.
 Apply: before any commit, scan `git status -s` for unexpected `??` entries. If a binary/asset file appears that you didn't touch, ask before adding. Prefer staging by explicit paths over `-A` when the working tree has mystery files.
 
+### `git add -A` keeps eating user-pasted SVG files from the project root
+Context: third time in this session that an unrelated SVG appeared at the repo root between commits (smartphone-*.svg earlier; dj-mixer + remote this time). Each time, the previous commit's `git add -A` swept them in.
+Apply: in a project where the user routinely drops asset files into the root, NEVER use `git add -A`. Stage explicit paths: `git add src/ docs/ README.md CLAUDE.md package.json …`. If something unknown is at the root, it's almost certainly user staging-area material, not yours to commit.
+
+### Edit fails with "string not found" when an earlier Edit already changed the heading level
+Context: tried to insert content before `<h2 id="byok">` but the actual file had `<h3 id="byok">` because an earlier edit demoted the heading. Edit silently fails the entire call — no partial match, no helpful diff.
+Apply: when an Edit's `old_string` includes a structural marker (heading level, brace, doctype), grep the file first to confirm the marker still exists in that form. Don't trust your in-context memory of file state across multiple Edits.
+
 ### Files restored from history via `git show HEAD~N:path > dest` may end up in BOTH dest and original location
 Context: ran `git show HEAD~1:setting-edit-svgrepo-com.svg > assets/setting-edit-svgrepo-com.svg` to recover an asset. The destination file was written correctly, but the original path (project root) also gained a copy — likely an IDE/auto-restore reaction to the historical path becoming "active" again.
 Apply: after `git show HEAD~N:path > dest`, immediately verify `git status -s` shows ONLY the new file. If a copy reappears at the original deleted path, `rm` it and re-stage before committing. Or use `git checkout HEAD~N -- path` and then `mv` to be explicit.

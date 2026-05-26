@@ -44,18 +44,38 @@ interface ViewState {
   suggestions: SerializedSuggestion[];
 }
 
+// Free providers wear cute display names so the dropdown reads as a
+// curated list rather than a stack of vendor brands. The provider IDs
+// (kept in code paths, log strings the user doesn't normally see, and
+// the providers.yml catalogue) remain unchanged so the orchestrator and
+// tests don't shift. Paid/BYOK providers keep their real names because
+// users need to know which vendor's key to paste.
 const PROVIDER_OPTIONS: { id: string; label: string }[] = [
-  { id: "auto", label: "Auto (try all free providers)" },
-  { id: "pollinations", label: "Pollinations (free, no key)" },
-  { id: "duckduckgo", label: "DuckDuckGo AI (free, no key)" },
-  { id: "huggingface", label: "HuggingFace (free, optional key)" },
-  { id: "mistral", label: "Mistral (free tier or BYOK)" },
-  { id: "openai", label: "OpenAI (BYOK)" },
-  { id: "anthropic", label: "Anthropic (BYOK)" },
-  { id: "groq", label: "Groq (free tier)" },
+  { id: "auto", label: "Auto" },
+  { id: "pollinations", label: "Bloom" },
+  { id: "duckduckgo", label: "Quack" },
+  { id: "huggingface", label: "Hugs" },
+  { id: "mistral", label: "Mistral" },
+  { id: "openai", label: "OpenAI" },
+  { id: "anthropic", label: "Anthropic" },
+  { id: "groq", label: "Groq" },
   { id: "ollama", label: "Ollama (local)" },
   { id: "g4f", label: "g4f (unofficial)" },
 ];
+
+// Reverse lookup used when rendering the "Provider: …" header line and
+// surfacing the providerUsed string returned by the orchestrator.
+const PROVIDER_LABEL_BY_ID: Record<string, string> = Object.fromEntries(
+  PROVIDER_OPTIONS.map((p) => [p.id, p.label]),
+);
+
+function maskProviderLabel(raw: string): string {
+  // raw is shaped like "auto → pollinations (no key)" or "mistral (user key)".
+  // Replace any provider id with its cute label, keep the rest of the string.
+  return raw.replace(/\b(auto|pollinations|duckduckgo|huggingface|mistral|openai|anthropic|groq|ollama|g4f)\b/g, (m) =>
+    PROVIDER_LABEL_BY_ID[m] ?? m,
+  );
+}
 
 const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
   Object.keys(LANGUAGE_LABELS) as Language[]
@@ -138,7 +158,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   setLoading(settings: DisplaySettings, hasUserKey: boolean): void {
     this.state = {
       status: "loading",
-      providerLabel: settings.providerId,
+      providerLabel: maskProviderLabel(settings.providerId),
       settings,
       hasUserKey,
       suggestions: [],
@@ -175,7 +195,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   ): void {
     this.state = {
       status: "ready",
-      providerLabel,
+      providerLabel: maskProviderLabel(providerLabel),
       settings,
       hasUserKey,
       suggestions: suggestions.map((s) => ({

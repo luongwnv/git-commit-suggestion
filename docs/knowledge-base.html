@@ -67,6 +67,17 @@
 </ul>
 
 
+<h3 id="cute-names">Display-name mapping (user-facing labels vs internal IDs)</h3>
+<p>The settings dropdown hides the upstream branding of zero-config providers behind curated names. Code paths, config keys, provider class names, and orchestrator logs use the internal IDs. Mapping (see <code>PROVIDER_OPTIONS</code> in <code>src/ui/webview-view.ts</code>):</p>
+<table>
+<tr><th>Internal id</th><th>Dropdown label</th><th>Real backend</th></tr>
+<tr><td><code>pollinations</code></td><td>Bloom</td><td>text.pollinations.ai</td></tr>
+<tr><td><code>duckduckgo</code></td><td>Quack</td><td>duckduckgo.com/aichat</td></tr>
+<tr><td><code>huggingface</code></td><td>Hugs</td><td>router.huggingface.co</td></tr>
+<tr><td><code>auto</code></td><td>Auto</td><td>walks the three above</td></tr>
+</table>
+<p>The webview <code>maskProviderLabel</code> function rewrites the orchestrator's <code>providerUsed</code> string before displaying it, so the "Provider: …" header line also speaks in cute names (e.g. "auto → Bloom (no key)" instead of "auto → pollinations (no key)"). README does NOT name the upstream services. Keep this section in sync — it is the only place a contributor can look up the mapping.</p>
+
 <h3 id="byok">No bundled keys — BYOK only</h3>
 <p>The extension ships <strong>no API keys</strong>. Providers split into two categories:</p>
 <ul>
