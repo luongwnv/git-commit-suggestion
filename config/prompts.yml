@@ -3,8 +3,10 @@
 #
 # Variables available:
 #   {{count}}            number of suggestions requested
-#   {{language}}         enum value: bilingual | en | vi | zh | ja | ko | es | fr | de | pt | ru
+#   {{language}}         language enum value (bilingual | en | vi | zh | zh-tw | ja | ...)
 #   {{language_label}}   human-readable language description (e.g. "Tiếng Việt")
+#   {{detail_level}}     concise | normal | detailed
+#   {{detail_guidance}}  rendered instruction for the chosen detail level
 #   {{types_block}}      rendered list of allowed commit types (from commit-types.yml)
 #   {{diff}}             the staged git diff (already truncated)
 #
@@ -38,9 +40,12 @@ user: |
   Output language: {{language_label}} (enum value: {{language}})
   - If `bilingual`: fill English in subject_en/body_en, Vietnamese in subject_vi/body_vi.
   - If `en` / `vi`: fill that language in the matching field; leave the other empty.
-  - For any other language (zh, ja, ko, es, fr, de, pt, ru): write the message in
-    that language and put it in BOTH subject_en and subject_vi (and body_en/body_vi).
-    The wrapper code will pick the right field.
+  - For any other language code: write the message in that language and put it in
+    BOTH subject_en and subject_vi (and body_en/body_vi). The wrapper code picks
+    the right field.
+
+  Detail level: {{detail_level}}
+  {{detail_guidance}}
 
   Staged diff:
   ```diff

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { LANGUAGE_LABELS, Language } from "../models/config";
+import { DETAIL_LEVEL_LABELS, DetailLevel, LANGUAGE_LABELS, Language } from "../models/config";
 import { formatCommitMessage, Suggestion } from "../models/suggestion";
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -17,6 +17,7 @@ type FromWebview =
   | { type: "open-mistral-console" }
   | { type: "set-provider"; providerId: string }
   | { type: "set-language"; language: Language }
+  | { type: "set-detail-level"; detailLevel: DetailLevel }
   | { type: "set-suggestion-count"; count: number }
   | { type: "set-show-emoji"; value: boolean }
   | { type: "set-show-body"; value: boolean };
@@ -28,6 +29,7 @@ type ToWebview = { type: "state"; state: ViewState };
 export interface DisplaySettings {
   providerId: string;
   language: Language;
+  detailLevel: DetailLevel;
   suggestionCount: number;
   showEmoji: boolean;
   showBody: boolean;
@@ -59,6 +61,10 @@ const LANGUAGE_OPTIONS: { id: Language; label: string }[] = (
   Object.keys(LANGUAGE_LABELS) as Language[]
 ).map((id) => ({ id, label: LANGUAGE_LABELS[id] }));
 
+const DETAIL_OPTIONS: { id: DetailLevel; label: string }[] = (
+  Object.keys(DETAIL_LEVEL_LABELS) as DetailLevel[]
+).map((id) => ({ id, label: DETAIL_LEVEL_LABELS[id] }));
+
 interface SerializedSuggestion {
   emoji: string;
   type: string;
@@ -77,6 +83,7 @@ export interface ViewCallbacks {
   onOpenMistralConsole: () => Promise<void>;
   onSetProvider: (providerId: string) => Promise<void>;
   onSetLanguage: (language: Language) => Promise<void>;
+  onSetDetailLevel: (detailLevel: DetailLevel) => Promise<void>;
   onSetSuggestionCount: (count: number) => Promise<void>;
   onSetShowEmoji: (value: boolean) => Promise<void>;
   onSetShowBody: (value: boolean) => Promise<void>;
@@ -86,10 +93,15 @@ export interface ViewCallbacks {
 const DEFAULT_SETTINGS: DisplaySettings = {
   providerId: "auto",
   language: "bilingual",
+  detailLevel: "normal",
   suggestionCount: 4,
   showEmoji: true,
   showBody: true,
 };
+
+// Solid gear icon. Inline SVG so the webview's strict CSP (no external assets)
+// stays happy and the icon scales/recolors with currentColor.
+const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94a7.49 7.49 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.43 7.43 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.14.55-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.32.61.22l2.39-.96c.49.39 1.04.7 1.63.94l.36 2.54c.05.25.26.42.5.42h3.84c.24 0 .45-.17.5-.42l.36-2.54c.59-.24 1.14-.55 1.63-.94l2.39.96c.22.1.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z"/></svg>`;
 
 export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "gitCommitSuggestion.view";
@@ -213,6 +225,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
       case "set-language":
         await this.cb.onSetLanguage(msg.language);
         break;
+      case "set-detail-level":
+        await this.cb.onSetDetailLevel(msg.detailLevel);
+        break;
       case "set-suggestion-count":
         await this.cb.onSetSuggestionCount(msg.count);
         break;
@@ -238,6 +253,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     ).join("");
     const languageOptionsHtml = LANGUAGE_OPTIONS.map(
       (l) => `<option value="${l.id}">${escapeServerSide(l.label)}</option>`,
+    ).join("");
+    const detailOptionsHtml = DETAIL_OPTIONS.map(
+      (d) => `<option value="${d.id}">${escapeServerSide(d.label)}</option>`,
     ).join("");
 
     return `<!DOCTYPE html>
@@ -293,10 +311,13 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     padding: 4px 6px;
     cursor: pointer;
     border-radius: 2px;
-    font-size: 1em;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
   }
   .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
+  .icon-btn svg { display: block; }
   .settings {
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -395,7 +416,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 <body>
   <div class="header">
     <span class="provider" id="provider"></span>
-    <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
+    <button class="icon-btn" id="settings-btn" title="Settings">${GEAR_SVG}</button>
     <button id="suggest-btn">Suggest</button>
   </div>
   <div class="settings hidden" id="settings">
@@ -406,6 +427,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     <div class="settings-row">
       <label for="language-select">Output language</label>
       <select id="language-select">${languageOptionsHtml}</select>
+    </div>
+    <div class="settings-row">
+      <label for="detail-select">Detail level</label>
+      <select id="detail-select">${detailOptionsHtml}</select>
     </div>
     <div class="settings-row">
       <label for="count-input">Number of suggestions (1-8)</label>
@@ -434,6 +459,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   const settingsEl = $("settings");
   const providerSelect = $("provider-select");
   const languageSelect = $("language-select");
+  const detailSelect = $("detail-select");
   const countInput = $("count-input");
   const emojiToggle = $("emoji-toggle");
   const bodyToggle = $("body-toggle");
@@ -444,6 +470,8 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     vscode.postMessage({ type: "set-provider", providerId: e.target.value }));
   languageSelect.addEventListener("change", (e) =>
     vscode.postMessage({ type: "set-language", language: e.target.value }));
+  detailSelect.addEventListener("change", (e) =>
+    vscode.postMessage({ type: "set-detail-level", detailLevel: e.target.value }));
   countInput.addEventListener("change", (e) => {
     const n = Math.max(1, Math.min(8, parseInt(e.target.value, 10) || 4));
     e.target.value = String(n);
@@ -518,6 +546,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   function syncSettings(settings) {
     if (providerSelect.value !== settings.providerId) providerSelect.value = settings.providerId;
     if (languageSelect.value !== settings.language) languageSelect.value = settings.language;
+    if (detailSelect.value !== settings.detailLevel) detailSelect.value = settings.detailLevel;
     if (parseInt(countInput.value, 10) !== settings.suggestionCount) {
       countInput.value = String(settings.suggestionCount);
     }

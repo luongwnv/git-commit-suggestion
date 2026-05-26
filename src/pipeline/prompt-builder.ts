@@ -4,6 +4,7 @@ import * as yaml from "js-yaml";
 import {
   CommitType,
   CommitTypeSchema,
+  DetailLevel,
   LANGUAGE_LABELS,
   Language,
   PromptsConfig,
@@ -13,9 +14,19 @@ import {
 export interface PromptInputs {
   count: number;
   language: Language;
+  detailLevel: DetailLevel;
   diff: string;
   commitTypes: CommitType[];
 }
+
+const DETAIL_GUIDANCE: Record<DetailLevel, string> = {
+  concise:
+    "Keep `body_en` and `body_vi` EMPTY. Make subjects as short as possible (under 50 chars) while still descriptive. Output is subject-only.",
+  normal:
+    "Body is 1–3 short sentences explaining the WHY. Skip the body entirely if the change is trivial (rename, typo, formatting).",
+  detailed:
+    "Body is a thorough multi-paragraph explanation. Cover: what changed, why it changed, what alternatives were considered, what callers/consumers are affected. 3–6 short paragraphs separated by blank lines.",
+};
 
 export interface BuiltPrompt {
   system: string;
@@ -35,6 +46,8 @@ export function buildPrompt(prompts: PromptsConfig, inputs: PromptInputs): Built
     count: String(inputs.count),
     language: inputs.language,
     language_label: LANGUAGE_LABELS[inputs.language],
+    detail_level: inputs.detailLevel,
+    detail_guidance: DETAIL_GUIDANCE[inputs.detailLevel],
     diff: inputs.diff,
     types_block: renderTypesBlock(inputs.commitTypes),
   };

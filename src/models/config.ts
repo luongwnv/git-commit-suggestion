@@ -19,6 +19,7 @@ export const LanguageSchema = z.enum([
   "en",
   "vi",
   "zh",
+  "zh-tw",
   "ja",
   "ko",
   "es",
@@ -26,6 +27,16 @@ export const LanguageSchema = z.enum([
   "de",
   "pt",
   "ru",
+  "id",
+  "th",
+  "ar",
+  "hi",
+  "it",
+  "tr",
+  "pl",
+  "nl",
+  "uk",
+  "sv",
 ]);
 export type Language = z.infer<typeof LanguageSchema>;
 
@@ -35,7 +46,8 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   bilingual: "English + Vietnamese (side by side)",
   en: "English",
   vi: "Tiếng Việt",
-  zh: "中文 (Chinese)",
+  zh: "简体中文 (Chinese Simplified)",
+  "zh-tw": "繁體中文 (Chinese Traditional)",
   ja: "日本語 (Japanese)",
   ko: "한국어 (Korean)",
   es: "Español (Spanish)",
@@ -43,12 +55,32 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   de: "Deutsch (German)",
   pt: "Português (Portuguese)",
   ru: "Русский (Russian)",
+  id: "Bahasa Indonesia (Indonesian)",
+  th: "ภาษาไทย (Thai)",
+  ar: "العربية (Arabic)",
+  hi: "हिन्दी (Hindi)",
+  it: "Italiano (Italian)",
+  tr: "Türkçe (Turkish)",
+  pl: "Polski (Polish)",
+  nl: "Nederlands (Dutch)",
+  uk: "Українська (Ukrainian)",
+  sv: "Svenska (Swedish)",
+};
+
+export const DetailLevelSchema = z.enum(["concise", "normal", "detailed"]);
+export type DetailLevel = z.infer<typeof DetailLevelSchema>;
+
+export const DETAIL_LEVEL_LABELS: Record<DetailLevel, string> = {
+  concise: "Concise — subject line only (vắn tắt)",
+  normal: "Normal — subject + brief body (tổng quan)",
+  detailed: "Detailed — subject + multi-paragraph body (chi tiết)",
 };
 
 export const ExtensionConfigSchema = z.object({
   provider: ProviderIdSchema,
   model: z.string(),
   language: LanguageSchema,
+  detailLevel: DetailLevelSchema,
   suggestionCount: z.number().int().min(1).max(8),
   maxDiffTokens: z.number().int().min(500),
   enableUnofficialProviders: z.boolean(),

@@ -111,6 +111,7 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
   const { system, user } = buildPrompt(prompts, {
     count: config.suggestionCount,
     language: config.language,
+    detailLevel: config.detailLevel,
     diff: renderDiff(diff),
     commitTypes,
   });

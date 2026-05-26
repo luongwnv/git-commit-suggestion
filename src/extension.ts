@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import {
+  DetailLevel,
   ExtensionConfig,
   ExtensionConfigSchema,
   Language,
@@ -23,6 +24,7 @@ function readConfig(): ExtensionConfig {
     provider: c.get("provider"),
     model: c.get("model", ""),
     language: c.get("language"),
+    detailLevel: c.get("detailLevel"),
     suggestionCount: c.get("suggestionCount"),
     maxDiffTokens: c.get("maxDiffTokens"),
     enableUnofficialProviders: c.get("enableUnofficialProviders"),
@@ -37,6 +39,7 @@ function settingsFromConfig(config: ExtensionConfig): DisplaySettings {
   return {
     providerId: config.provider,
     language: config.language,
+    detailLevel: config.detailLevel,
     suggestionCount: config.suggestionCount,
     showEmoji: config.showEmoji,
     showBody: config.showBody,
@@ -210,6 +213,10 @@ export function activate(context: vscode.ExtensionContext): void {
       },
       onSetLanguage: async (language: Language) => {
         await updateGlobal("language", language);
+        await refresh();
+      },
+      onSetDetailLevel: async (detailLevel: DetailLevel) => {
+        await updateGlobal("detailLevel", detailLevel);
         await refresh();
       },
       onSetSuggestionCount: async (count) => {
