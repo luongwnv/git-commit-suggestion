@@ -170,12 +170,23 @@ export function activate(context: vscode.ExtensionContext): void {
   const onOpenMistralConsole = async (): Promise<void> => {
     await vscode.env.openExternal(vscode.Uri.parse("https://console.mistral.ai/api-keys"));
   };
+  const onSetProvider = async (providerId: string): Promise<void> => {
+    await vscode.workspace
+      .getConfiguration("gitCommitSuggestion")
+      .update("provider", providerId, vscode.ConfigurationTarget.Global);
+    if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
+  };
+  const onReady = async (): Promise<void> => {
+    if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
+  };
   const view = new CommitSuggestionViewProvider(
     context.extensionUri,
     onSuggest,
     onUse,
     onPasteKey,
     onOpenMistralConsole,
+    onSetProvider,
+    onReady,
     suggestionsRef,
   );
   viewRef.current = view;

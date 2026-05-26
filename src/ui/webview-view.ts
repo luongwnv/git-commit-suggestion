@@ -14,7 +14,8 @@ type FromWebview =
   | { type: "suggest" }
   | { type: "use"; index: number }
   | { type: "paste-key" }
-  | { type: "open-mistral-console" };
+  | { type: "open-mistral-console" }
+  | { type: "set-provider"; providerId: string };
 
 // Messages from extension → webview.
 type ToWebview =
@@ -32,6 +33,22 @@ interface ViewState {
   hasUserKey: boolean;
   providerId: string;
 }
+
+// Provider catalogue for the gear-icon settings dropdown. Mirrored from the
+// enum in models/config.ts. Centralised here so the webview can render
+// human-friendly labels without re-reading providers.yml.
+const PROVIDER_OPTIONS: { id: string; label: string }[] = [
+  { id: "auto", label: "Auto (try all free providers)" },
+  { id: "pollinations", label: "Pollinations (free, no key)" },
+  { id: "duckduckgo", label: "DuckDuckGo AI (free, no key)" },
+  { id: "huggingface", label: "HuggingFace (free, optional key)" },
+  { id: "mistral", label: "Mistral (free tier or BYOK)" },
+  { id: "openai", label: "OpenAI (BYOK)" },
+  { id: "anthropic", label: "Anthropic (BYOK)" },
+  { id: "groq", label: "Groq (free tier)" },
+  { id: "ollama", label: "Ollama (local)" },
+  { id: "g4f", label: "g4f (unofficial)" },
+];
 
 interface SerializedSuggestion {
   emoji: string;
@@ -53,7 +70,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     language: "bilingual",
     suggestions: [],
     hasUserKey: false,
-    providerId: "mistral",
+    providerId: "auto",
   };
 
   constructor(
@@ -62,6 +79,8 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     private readonly onUse: (suggestion: Suggestion, finalMessage: string) => Promise<void>,
     private readonly onPasteKey: () => Promise<void>,
     private readonly onOpenMistralConsole: () => Promise<void>,
+    private readonly onSetProvider: (providerId: string) => Promise<void>,
+    private readonly onReady: () => Promise<void>,
     private readonly suggestionsRef: { current: Suggestion[] },
   ) {}
 
@@ -151,6 +170,10 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   private async handleMessage(msg: FromWebview): Promise<void> {
     switch (msg.type) {
       case "ready":
+        // Webview-side script has registered listeners; pull live VSCode
+        // settings + secret status before pushing the first state so the
+        // dropdown reflects reality, not the constructor default.
+        await this.onReady();
         this.post();
         break;
       case "suggest":
@@ -168,6 +191,9 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
         break;
       case "open-mistral-console":
         await this.onOpenMistralConsole();
+        break;
+      case "set-provider":
+        await this.onSetProvider(msg.providerId);
         break;
     }
   }
@@ -277,6 +303,45 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   .banner-title { font-weight: 600; margin-bottom: 4px; }
   .banner-actions { display: flex; gap: 6px; margin-top: 6px; }
   .banner-actions button { font-size: 0.95em; padding: 3px 8px; }
+  .icon-btn {
+    background: transparent;
+    color: var(--vscode-icon-foreground, var(--vscode-foreground));
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 1em;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
+  .settings {
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    background: var(--vscode-editor-background);
+  }
+  .settings.hidden { display: none; }
+  .settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .settings-row:last-child { margin-bottom: 0; }
+  .settings-row label {
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+  }
+  .settings-row select {
+    background: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    border-radius: 2px;
+  }
   .spinner {
     display: inline-block;
     width: 12px;
@@ -294,7 +359,18 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 <body>
   <div class="header">
     <span class="provider" id="provider"></span>
+    <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
     <button id="suggest-btn">Suggest</button>
+  </div>
+  <div class="settings hidden" id="settings">
+    <div class="settings-row">
+      <label for="provider-select">Provider</label>
+      <select id="provider-select">
+        ${PROVIDER_OPTIONS.map(
+          (p) => `<option value="${p.id}">${escapeServerSide(p.label)}</option>`,
+        ).join("")}
+      </select>
+    </div>
   </div>
   <div id="banner"></div>
   <div id="content"><div class="empty">Stage some files, then click <b>Suggest</b>.</div></div>
@@ -305,8 +381,15 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   const providerEl = document.getElementById("provider");
   const bannerEl = document.getElementById("banner");
   const suggestBtn = document.getElementById("suggest-btn");
+  const settingsBtn = document.getElementById("settings-btn");
+  const settingsEl = document.getElementById("settings");
+  const providerSelect = document.getElementById("provider-select");
 
   suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
+  settingsBtn.addEventListener("click", () => settingsEl.classList.toggle("hidden"));
+  providerSelect.addEventListener("change", (e) => {
+    vscode.postMessage({ type: "set-provider", providerId: e.target.value });
+  });
 
   function renderBanner(state) {
     // Show the upgrade banner only when the active provider is the bundled
@@ -363,6 +446,11 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   function render(state) {
     providerEl.textContent = state.providerLabel ? "Provider: " + state.providerLabel : "";
     suggestBtn.disabled = state.status === "loading";
+    // Keep the dropdown in sync with the active provider but don't refire
+    // the change event (which would loop us back into set-provider).
+    if (providerSelect.value !== state.providerId) {
+      providerSelect.value = state.providerId;
+    }
     renderBanner(state);
     if (state.status === "loading") {
       contentEl.innerHTML = '<div class="loading"><span class="spinner"></span>Generating suggestions…</div>';
@@ -397,6 +485,14 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
 </body>
 </html>`;
   }
+}
+
+// Used at HTML-template-build time (extension host side). Webview-side
+// strings get their own escapeHtml() in the inline script.
+function escapeServerSide(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
+  );
 }
 
 function randomNonce(): string {
