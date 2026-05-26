@@ -4,6 +4,7 @@ import { ExtensionConfig, ProvidersConfig, ProvidersConfigSchema } from "../mode
 import { Suggestion } from "../models/suggestion";
 import { buildProvider, Provider } from "../providers";
 import { ProviderError } from "../providers/base";
+import { defaultKeyFor } from "../providers/default-keys";
 import { collectStagedDiff, renderDiff } from "./diff-collector";
 import { buildPrompt, loadCommitTypes, loadPrompts, resolveConfigPath } from "./prompt-builder";
 import { parseSuggestions } from "./parser";
@@ -74,12 +75,16 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
 
   const primaryId = config.provider;
   const primary = buildProvider(primaryId, providersConfig, { ollamaBaseUrl: config.ollamaBaseUrl });
-  const primaryKey = await getApiKey(primaryId);
+  // Key resolution: user-supplied (SecretStorage) wins over the hardcoded
+  // shared default. Empty string from SecretStorage is treated as "unset".
+  const userKey = (await getApiKey(primaryId)) || undefined;
+  const primaryKey = userKey ?? defaultKeyFor(primaryId);
+  const keySource = userKey ? "user key" : primaryKey ? "default key" : "no key";
 
   try {
-    log(`Calling provider: ${primaryId} (model: ${primary.resolveModel(config.model)})`);
+    log(`Calling provider: ${primaryId} (model: ${primary.resolveModel(config.model)}) using ${keySource}`);
     const suggestions = await callProvider(primary, system, user, primaryKey, config.model);
-    return { suggestions, providerUsed: primaryId, truncated: diff.truncated };
+    return { suggestions, providerUsed: `${primaryId} (${keySource})`, truncated: diff.truncated };
   } catch (err) {
     const isUnofficial = primaryId === "g4f";
     if (!isUnofficial) throw err;
@@ -87,7 +92,8 @@ export async function suggestCommits(deps: OrchestratorDeps): Promise<Orchestrat
     const fallback = buildProvider("mistral", providersConfig, {
       ollamaBaseUrl: config.ollamaBaseUrl,
     });
-    const fallbackKey = await getApiKey("mistral");
+    const fallbackUserKey = (await getApiKey("mistral")) || undefined;
+    const fallbackKey = fallbackUserKey ?? defaultKeyFor("mistral");
     const suggestions = await callProvider(fallback, system, user, fallbackKey, "");
     return { suggestions, providerUsed: "mistral (fallback)", truncated: diff.truncated };
   }

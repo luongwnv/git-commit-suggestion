@@ -6,6 +6,8 @@ UX modeled on [RedJue/git-commit-plugin](https://github.com/RedJue/git-commit-pl
 
 A dedicated **Commit Suggestions** webview lives inside the Source Control sidebar — one card per suggestion with bilingual subject/body and a *Use this* button that drops the message into the SCM input.
 
+First-time users can run it immediately with a bundled shared Mistral key (rate-limited, may be revoked) — a warning banner in the sidebar prompts them to paste their own free key from `console.mistral.ai/api-keys` for reliable use. User key always wins over the bundled default.
+
 > **Read first** if you are an AI agent: [docs/knowledge-base.html](docs/knowledge-base.html) and [docs/provider-comparison.html](docs/provider-comparison.html). Both contain non-obvious gotchas (Mistral free-tier rate limit, g4f endpoint rotation, JSON parse repair, etc.).
 
 ## Layout

@@ -23,6 +23,17 @@
 
 <h2 id="providers">Provider quirks</h2>
 
+<h3 id="default-key">Bundled default Mistral key</h3>
+<div class="warn">
+<strong>Bundled in the .vsix.</strong> The repo ships a shared throwaway Mistral key in <code>src/providers/default-keys.ts</code> so first-time users can try the extension without signing up. This key is shared across all installs, rate-limited (~1 req/s on free tier), and will almost certainly be revoked or hit quota once the extension sees real usage. The webview shows a warning banner whenever this default is being used.
+</div>
+<ul>
+  <li>Key resolution order in <code>orchestrator.ts</code>: <em>user-supplied key via SecretStorage</em> &rarr; <em>bundled default from <code>default-keys.ts</code></em>. User key always wins.</li>
+  <li>The banner ("⚠️ Using shared default key") is shown only when the active provider is <code>mistral</code> AND the user has no key set. Other providers have no bundled default; if they have no key they will fail with a clear ProviderError instead.</li>
+  <li>The two banner buttons map to webview &rarr; extension messages: <code>{ type: "open-mistral-console" }</code> opens <code>https://console.mistral.ai/api-keys</code> in the OS browser; <code>{ type: "paste-key" }</code> opens an InputBox and stores into SecretStorage.</li>
+  <li>If you fork this repo: replace the key in <code>default-keys.ts</code> with your own throwaway, or remove the file and return <code>undefined</code> from <code>defaultKeyFor</code>. Never ship a paid/production key here — anyone who downloads the .vsix can extract it in seconds.</li>
+</ul>
+
 <h3 id="mistral">Mistral free tier</h3>
 <ul>
   <li>Free tier rate limit is approximately <strong>1 request/second</strong> per key. A second click within ~1s of the first will return HTTP 429.</li>

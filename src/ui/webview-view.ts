@@ -12,7 +12,9 @@ const TYPE_EMOJI: Record<string, string> = {
 type FromWebview =
   | { type: "ready" }
   | { type: "suggest" }
-  | { type: "use"; index: number };
+  | { type: "use"; index: number }
+  | { type: "paste-key" }
+  | { type: "open-mistral-console" };
 
 // Messages from extension → webview.
 type ToWebview =
@@ -24,6 +26,11 @@ interface ViewState {
   providerLabel?: string;
   language: "bilingual" | "en" | "vi";
   suggestions: SerializedSuggestion[];
+  // Onboarding hint shown when the active provider is mistral and the user
+  // hasn't supplied their own key. The extension is using the bundled
+  // throwaway default — which is rate-limited and shared. Encourage BYOK.
+  hasUserKey: boolean;
+  providerId: string;
 }
 
 interface SerializedSuggestion {
@@ -41,12 +48,20 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   public static readonly viewId = "gitCommitSuggestion.view";
 
   private view?: vscode.WebviewView;
-  private state: ViewState = { status: "idle", language: "bilingual", suggestions: [] };
+  private state: ViewState = {
+    status: "idle",
+    language: "bilingual",
+    suggestions: [],
+    hasUserKey: false,
+    providerId: "mistral",
+  };
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly onSuggest: () => Promise<void>,
     private readonly onUse: (suggestion: Suggestion, finalMessage: string) => Promise<void>,
+    private readonly onPasteKey: () => Promise<void>,
+    private readonly onOpenMistralConsole: () => Promise<void>,
     private readonly suggestionsRef: { current: Suggestion[] },
   ) {}
 
@@ -60,13 +75,43 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     view.webview.onDidReceiveMessage((msg: FromWebview) => this.handleMessage(msg));
   }
 
-  setLoading(providerLabel: string, language: ExtensionConfig["language"]): void {
-    this.state = { status: "loading", providerLabel, language, suggestions: [] };
+  setLoading(providerId: string, language: ExtensionConfig["language"], hasUserKey: boolean): void {
+    this.state = {
+      status: "loading",
+      providerLabel: providerId,
+      language,
+      suggestions: [],
+      hasUserKey,
+      providerId,
+    };
     this.post();
   }
 
-  setError(errorMessage: string, language: ExtensionConfig["language"]): void {
-    this.state = { status: "error", errorMessage, language, suggestions: [] };
+  setError(
+    errorMessage: string,
+    language: ExtensionConfig["language"],
+    providerId: string,
+    hasUserKey: boolean,
+  ): void {
+    this.state = {
+      status: "error",
+      errorMessage,
+      language,
+      suggestions: [],
+      hasUserKey,
+      providerId,
+    };
+    this.post();
+  }
+
+  setIdle(providerId: string, language: ExtensionConfig["language"], hasUserKey: boolean): void {
+    this.state = {
+      status: "idle",
+      language,
+      suggestions: [],
+      hasUserKey,
+      providerId,
+    };
     this.post();
   }
 
@@ -74,11 +119,15 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     suggestions: Suggestion[],
     providerLabel: string,
     language: ExtensionConfig["language"],
+    providerId: string,
+    hasUserKey: boolean,
   ): void {
     this.state = {
       status: "ready",
       providerLabel,
       language,
+      hasUserKey,
+      providerId,
       suggestions: suggestions.map((s) => ({
         emoji: TYPE_EMOJI[s.type] ?? "•",
         type: s.type,
@@ -114,6 +163,12 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
         await this.onUse(s, serialized.finalMessage);
         break;
       }
+      case "paste-key":
+        await this.onPasteKey();
+        break;
+      case "open-mistral-console":
+        await this.onOpenMistralConsole();
+        break;
     }
   }
 
@@ -209,6 +264,19 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     text-align: center;
   }
   .error { color: var(--vscode-errorForeground); white-space: pre-wrap; text-align: left; }
+  .banner {
+    border: 1px solid var(--vscode-inputValidation-warningBorder, #f0ad4e);
+    background: var(--vscode-inputValidation-warningBackground, rgba(240, 173, 78, 0.1));
+    color: var(--vscode-foreground);
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+  .banner-title { font-weight: 600; margin-bottom: 4px; }
+  .banner-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .banner-actions button { font-size: 0.95em; padding: 3px 8px; }
   .spinner {
     display: inline-block;
     width: 12px;
@@ -228,15 +296,40 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
     <span class="provider" id="provider"></span>
     <button id="suggest-btn">Suggest</button>
   </div>
+  <div id="banner"></div>
   <div id="content"><div class="empty">Stage some files, then click <b>Suggest</b>.</div></div>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const contentEl = document.getElementById("content");
   const providerEl = document.getElementById("provider");
+  const bannerEl = document.getElementById("banner");
   const suggestBtn = document.getElementById("suggest-btn");
 
   suggestBtn.addEventListener("click", () => vscode.postMessage({ type: "suggest" }));
+
+  function renderBanner(state) {
+    // Only show the onboarding banner for mistral with no user key. Other
+    // providers don't have a shared default to warn about.
+    if (state.providerId !== "mistral" || state.hasUserKey) {
+      bannerEl.innerHTML = "";
+      return;
+    }
+    bannerEl.innerHTML =
+      '<div class="banner">'
+      + '<div class="banner-title">⚠️ Using shared default key</div>'
+      + "You're using a shared throwaway Mistral key bundled with the extension. "
+      + "It is rate-limited (~1 req/s) and may be revoked at any time. "
+      + "<b>Get your own free key</b> for reliable use."
+      + '<div class="banner-actions">'
+      + '<button class="secondary" id="open-console">Get free key</button>'
+      + '<button id="paste-key">Paste my key</button>'
+      + "</div></div>";
+    document.getElementById("open-console").addEventListener("click", () =>
+      vscode.postMessage({ type: "open-mistral-console" }));
+    document.getElementById("paste-key").addEventListener("click", () =>
+      vscode.postMessage({ type: "paste-key" }));
+  }
 
   function escapeHtml(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -269,6 +362,7 @@ export class CommitSuggestionViewProvider implements vscode.WebviewViewProvider 
   function render(state) {
     providerEl.textContent = state.providerLabel ? "Provider: " + state.providerLabel : "";
     suggestBtn.disabled = state.status === "loading";
+    renderBanner(state);
     if (state.status === "loading") {
       contentEl.innerHTML = '<div class="loading"><span class="spinner"></span>Generating suggestions…</div>';
       return;

@@ -61,7 +61,8 @@ async function runSuggest(
       .update("enableUnofficialProviders", true, vscode.ConfigurationTarget.Global);
   }
 
-  view.setLoading(config.provider, config.language);
+  const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
+  view.setLoading(config.provider, config.language, hasUserKey);
 
   try {
     const result = await suggestCommits({
@@ -72,7 +73,7 @@ async function runSuggest(
       log,
     });
     suggestionsRef.current = result.suggestions;
-    view.setSuggestions(result.suggestions, result.providerUsed, config.language);
+    view.setSuggestions(result.suggestions, result.providerUsed, config.language, config.provider, hasUserKey);
     log(`Got ${result.suggestions.length} suggestions from ${result.providerUsed}`);
 
     // When invoked via command palette (no visible view), still surface a
@@ -85,9 +86,18 @@ async function runSuggest(
   } catch (err) {
     const msg = (err as Error).message;
     log(`ERROR: ${msg}`);
-    view.setError(msg, config.language);
+    view.setError(msg, config.language, config.provider, hasUserKey);
     vscode.window.showErrorMessage(`Git Commit Suggestion: ${msg}`);
   }
+}
+
+async function refreshIdleState(
+  secrets: vscode.SecretStorage,
+  view: CommitSuggestionViewProvider,
+): Promise<void> {
+  const config = readConfig();
+  const hasUserKey = Boolean(await secrets.get(SECRET_KEY(config.provider)));
+  view.setIdle(config.provider, config.language, hasUserKey);
 }
 
 async function applySuggestion(
@@ -145,10 +155,27 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!cwd) return;
     await applySuggestion(cwd, suggestion, finalMessage);
   };
+  const onPasteKey = async (): Promise<void> => {
+    const config = readConfig();
+    const key = await vscode.window.showInputBox({
+      prompt: t("enterApiKey", config.provider),
+      password: true,
+      ignoreFocusOut: true,
+    });
+    if (!key) return;
+    await context.secrets.store(SECRET_KEY(config.provider), key);
+    vscode.window.showInformationMessage(t("keySaved", config.provider));
+    if (viewRef.current) await refreshIdleState(context.secrets, viewRef.current);
+  };
+  const onOpenMistralConsole = async (): Promise<void> => {
+    await vscode.env.openExternal(vscode.Uri.parse("https://console.mistral.ai/api-keys"));
+  };
   const view = new CommitSuggestionViewProvider(
     context.extensionUri,
     onSuggest,
     onUse,
+    onPasteKey,
+    onOpenMistralConsole,
     suggestionsRef,
   );
   viewRef.current = view;
