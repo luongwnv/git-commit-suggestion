@@ -84,13 +84,13 @@ interface AttemptResult {
   label: string;
 }
 
-// Hard ceiling on a single provider call. Pollinations' reasoning model
-// normally returns in 15-25s for our workload; when the endpoint accepts
-// the connection then never sends a response, fetch hangs forever and the
-// webview spinner has no exit. 30s is tight enough that a hang feels like
-// a fast failure (user sees the error banner and can retry / switch
-// provider) without cutting off a real slow-but-working call.
-const PROVIDER_TIMEOUT_MS = 30_000;
+// Hard ceiling on a single provider call. Measured worst-case on a realistic
+// ~1.5k-token prompt against Pollinations' gpt-oss-20b reasoning model is
+// ~37s end-to-end (reasoning trace + JSON emit). 30s was cutting off
+// otherwise-successful calls; 75s gives ~2x headroom while still bounding
+// a true endpoint hang (the bug class this whole wrapper exists to kill —
+// see lessons.html "Node fetch() has no default timeout").
+const PROVIDER_TIMEOUT_MS = 75_000;
 
 // Build a child AbortController that fires when EITHER:
 //   - the parent (user Stop) aborts, or

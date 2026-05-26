@@ -9,7 +9,9 @@ tsconfig.json
 .gitignore
 .env
 .env.example
-node_modules/**
+node_modules/.bin/**
+node_modules/.package-lock.json
+node_modules/.cache/**
 .claude/**
 .adn/**
 CLAUDE.md
