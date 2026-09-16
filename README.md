@@ -80,6 +80,7 @@ For private repos with sensitive code: use **Mistral** or **Anthropic** with you
 | "No staged changes" | Stage at least one file with `git add` or the `+` button in Source Control. |
 | Empty Source Control input box after *Use this* | Make sure the built-in `vscode.git` extension is enabled. As a fallback, the message is copied to the clipboard. |
 | All providers in *Auto* fail | A community provider may be down. Switch to a BYOK provider (Mistral has a free tier). |
+| `[Mistral] Rate limit exceeded` | Wait about a minute and try once more. The extension retries brief throttling automatically; if it persists, check the key's quota/billing in the Mistral console or use another provider. |
 | Subject is in the wrong language | Re-pick the output language from the dropdown and click *Suggest* again. |
 
 ## Contributing

@@ -12,7 +12,8 @@ mistral:
   auth: bearer
   notes: |
     Free tier requires registering at console.mistral.ai for an API key.
-    Rate limit ~1 req/sec on the free tier; the orchestrator backs off on 429.
+    Rate limit ~1 req/sec on the free tier; the client retries 429 responses
+    with exponential backoff before surfacing a quota/billing hint.
 
 openai:
   label: OpenAI
@@ -43,7 +44,9 @@ groq:
   byok: true
   base_url: https://api.groq.com/openai/v1
   endpoint: /chat/completions
-  default_model: llama-3.1-8b-instant
+  # llama-3.1-8b-instant was retired for Free/Developer accounts on
+  # 2026-08-16. Groq recommends this replacement, which supports JSON mode.
+  default_model: openai/gpt-oss-20b
   auth: bearer
   notes: |
     Free tier with generous rate limits. OpenAI-compatible schema.
